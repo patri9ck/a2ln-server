@@ -4,14 +4,14 @@ This is the server part of **Android 2 Linux Notifications**. It consists of a s
 The recommended way to install A2LN is through your package manager.
 ### Manual Installation
 Alternatively, you can clone this repository and place the `a2ln` Python script somewhere into your `PATH` variable:
-```sh
+```
 $ git clone https://github.com/patri9ck/a2ln-server.git
 $ mv a2ln-server
-$ sudo mv a2ln-server/a2ln /usr/local/bin
+# mv a2ln-server/a2ln /usr/local/bin
 ```
 ## Usage
 After the installation, simply run A2LN like this:
-```sh
+```
 $ a2ln <PORT>
 ```
 Replace `<PORT>` with the port you want to use. **You must use a port higher than 1023 if you are not root**.
