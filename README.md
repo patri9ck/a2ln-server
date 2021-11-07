@@ -11,6 +11,11 @@ Alternatively, you can clone this repository and place the `a2ln` Python script 
 $ git clone https://github.com/patri9ck/a2ln-server.git
 # install -Dm755 a2ln-server/a2ln /usr/local/bin/a2ln
 ```
+Runtime dependencies:
+- Python 3
+- PyGObject
+- PyZMQ
+- setproctitle
 ## Usage
 After the installation, simply run A2LN like this:
 ```
