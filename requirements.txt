@@ -1,0 +1,4 @@
+Pillow
+pygobject
+pyzmq
+setproctitle
