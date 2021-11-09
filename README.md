@@ -1,7 +1,7 @@
 # Android 2 Linux Notifications Server
-**Android 2 Linux Notification** (**A2LN**) allows you to show your Android notifications on your Linux desktops.
+**Android 2 Linux Notifications** (**A2LN**) is a way to show your Android notifications on Linux with libnotify. It creates a direct socket connection from your phone to your computer whenever a notification arrives. Both devices must be in the same network.
 
-This is the server part of A2LN. It consists of a simple Python script.
+This repository contains the server part of A2LN.
 ## Installation
 The recommended way to install A2LN is through your package manager.
 Distribution | Maintainer
