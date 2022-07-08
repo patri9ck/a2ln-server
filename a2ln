@@ -75,7 +75,9 @@ def send_notification(title, text, picture_file=None):
 
         picture_file.close()
 
+    print("")
     print(f"Sent notification (Title: {title}, Text: {text}).")
+    print("")
 
 
 class NotificationServer(threading.Thread):
@@ -116,6 +118,8 @@ class NotificationServer(threading.Thread):
                     self.authenticator.stop()
 
                 print(f"Notification server running on host {self.server_ip} and port {self.server_notification_port}.")
+
+                Notify.init("Android 2 Linux Notifications")
 
                 while True:
                     request = server.recv_multipart()
