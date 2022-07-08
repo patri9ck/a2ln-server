@@ -49,8 +49,6 @@ def start():
         while True:
             pass
     except KeyboardInterrupt:
-        print("\nBye!")
-
         exit()
 
 
