@@ -11,11 +11,20 @@ import gi
 import zmq
 import zmq.auth
 import zmq.auth.thread
+import zmq.error
+
 from PIL import Image
 
 gi.require_version('Notify', '0.7')
 
 from gi.repository import Notify
+
+
+BOLD = "\033[1m"
+GREEN = "\033[0;32m"
+RESET = "\033[0m"
+
+PREFIX = f"{GREEN}==>{RESET} "
 
 
 def start():
@@ -33,22 +42,31 @@ def start():
 
         zmq.auth.create_certificates(server_keys_directory, "server")
 
-    ip = get_ip()
+    server_notification_port = parse_args().port
 
-    public_key, secret_key = zmq.auth.load_certificate(server_keys_directory / "server.key_secret")
+    server_public_key, server_secret_key = zmq.auth.load_certificate(server_keys_directory / "server.key_secret")
 
-    port = parse_args().port
+    print(f"{PREFIX}Your IP: {BOLD}{get_ip()}{RESET}")
+    print(f"{PREFIX}Your public key: {BOLD}{server_public_key.decode('utf-8')}{RESET}")
 
-    notification_server = NotificationServer(client_public_keys_directory, public_key, secret_key, ip, port)
-    pair_server = PairServer(client_public_keys_directory, public_key, ip, port, notification_server)
+    notification_server = NotificationServer(client_public_keys_directory,
+                                             server_public_key,
+                                             server_secret_key,
+                                             server_notification_port)
 
-    for server in [pair_server, notification_server]:
+    pair_server = PairServer(client_public_keys_directory,
+                             server_public_key,
+                             notification_server)
+
+    for server in [notification_server, pair_server]:
         server.start()
 
     try:
         while True:
             pass
     except KeyboardInterrupt:
+        print("\r", end="")
+
         exit()
 
 
@@ -75,9 +93,7 @@ def send_notification(title, text, picture_file=None):
 
         picture_file.close()
 
-    print("")
-    print(f"Sent notification (Title: {title}, Text: {text}).")
-    print("")
+    print(f"\nSent notification (Title: {BOLD}{title}{RESET}, Text: {BOLD}{text}{RESET})")
 
 
 class NotificationServer(threading.Thread):
@@ -85,14 +101,12 @@ class NotificationServer(threading.Thread):
                  client_public_keys_directory,
                  server_public_key,
                  server_secret_key,
-                 server_ip,
                  server_notification_port):
         super().__init__(daemon=True)
 
         self.client_public_keys_directory = client_public_keys_directory
         self.server_public_key = server_public_key
         self.server_secret_key = server_secret_key
-        self.server_ip = server_ip
         self.server_notification_port = server_notification_port
         self.authenticator = None
 
@@ -104,7 +118,7 @@ class NotificationServer(threading.Thread):
 
             self.authenticator.start()
 
-            self.update_client_keys()
+            self.update_client_public_keys()
 
             with context.socket(zmq.PULL) as server:
                 server.curve_publickey = self.server_public_key
@@ -114,10 +128,19 @@ class NotificationServer(threading.Thread):
 
                 try:
                     server.bind(f"tcp://*:{self.server_notification_port}")
-                finally:
+                except zmq.error.ZMQError as error:
                     self.authenticator.stop()
 
-                print(f"Notification server running on host {self.server_ip} and port {self.server_notification_port}.")
+                    if str(error) == "Address already in use":
+                        print("\nCannot start notification server: Port already used")
+
+                        return
+
+                    print("\nCannot start notification server:")
+                    
+                    raise
+
+                print(f"\nNotification server running on port {BOLD}{self.server_notification_port}{RESET}", flush=True)
 
                 Notify.init("Android 2 Linux Notifications")
 
@@ -140,7 +163,7 @@ class NotificationServer(threading.Thread):
                                      args=(request[0].decode("utf-8"), request[1].decode("utf-8"), picture_file),
                                      daemon=True).start()
 
-    def update_client_keys(self):
+    def update_client_public_keys(self):
         if self.authenticator is not None and self.authenticator.is_alive():
             self.authenticator.configure_curve(domain="*", location=self.client_public_keys_directory.as_posix())
 
@@ -149,26 +172,20 @@ class PairServer(threading.Thread):
     def __init__(self,
                  client_public_keys_directory,
                  server_public_key,
-                 server_ip,
-                 server_notification_port,
                  notification_server):
         super(PairServer, self).__init__(daemon=True)
 
         self.client_public_keys_directory = client_public_keys_directory
         self.server_public_key = server_public_key
-        self.server_ip = server_ip
-        self.server_notification_port = server_notification_port
         self.notification_server = notification_server
 
     def run(self):
         super(PairServer, self).run()
 
         with zmq.Context() as context, context.socket(zmq.REP) as server:
-            server.setsockopt(zmq.LINGER, 1)
-
             server_pairing_port = server.bind_to_random_port("tcp://*")
 
-            print(f"Pairing server running on host {self.server_ip} and port {server_pairing_port}.")
+            print(f"\nPairing server running on port {BOLD}{server_pairing_port}{RESET}.", flush=True)
 
             while True:
                 request = server.recv_multipart()
@@ -179,31 +196,26 @@ class PairServer(threading.Thread):
                 client_ip = request[0].decode("utf-8")
                 client_public_key = request[1].decode("utf-8")
 
-                print("")
-                print("New pairing request")
-                print("")
-                print("Client IP: " + client_ip)
-                print("Client public key: " + client_public_key)
-                print("")
-                print("Your IP: " + self.server_ip)
-                print("Your public key: " + self.server_public_key.decode("utf-8"))
-                print("")
+                print(f"\n{PREFIX}New pairing request")
+                print(f"\nClient IP: {BOLD}{client_ip}{RESET}")
+                print(f"Client public key: {BOLD}{client_public_key}{RESET}")
 
-                if input("Accept? (Yes/No): ").lower() != "yes":
+                if input("\nAccept? (Yes/No): ").lower() != "yes":
                     print("Pairing cancelled.")
 
                     server.send_multipart([b""])
 
                     continue
 
-                with open(self.client_public_keys_directory / client_ip, "w", encoding="utf-8") as client_key_file:
+                with open((self.client_public_keys_directory / client_ip).as_posix() + ".key", "w", encoding="utf-8") as client_key_file:
                     client_key_file.write("metadata\n"
                                           "curve\n"
                                           f"    public-key = \"{client_public_key}\"\n")
 
-                server.send_multipart([str(self.server_notification_port).encode("utf-8"), self.server_public_key])
+                server.send_multipart([str(self.notification_server.server_notification_port).encode("utf-8"),
+                                       self.server_public_key])
 
-                self.notification_server.update_client_keys()
+                self.notification_server.update_client_public_keys()
 
                 print("Pairing finished.")
 
