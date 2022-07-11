@@ -12,13 +12,11 @@ import zmq
 import zmq.auth
 import zmq.auth.thread
 import zmq.error
-
 from PIL import Image
 
 gi.require_version('Notify', '0.7')
 
 from gi.repository import Notify
-
 
 BOLD = "\033[1m"
 GREEN = "\033[0;32m"
@@ -137,7 +135,7 @@ class NotificationServer(threading.Thread):
                         return
 
                     print("\nCannot start notification server:")
-                    
+
                     raise
 
                 print(f"\nNotification server running on port {BOLD}{self.server_notification_port}{RESET}", flush=True)
@@ -207,7 +205,8 @@ class PairServer(threading.Thread):
 
                     continue
 
-                with open((self.client_public_keys_directory / client_ip).as_posix() + ".key", "w", encoding="utf-8") as client_key_file:
+                with open((self.client_public_keys_directory / client_ip).as_posix() + ".key", "w",
+                          encoding="utf-8") as client_key_file:
                     client_key_file.write("metadata\n"
                                           "curve\n"
                                           f"    public-key = \"{client_public_key}\"\n")
