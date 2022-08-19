@@ -2,3 +2,4 @@ Pillow
 pygobject
 pyzmq
 setproctitle
+qrcode
