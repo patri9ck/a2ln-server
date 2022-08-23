@@ -4,4 +4,4 @@
 More information can be found at [www.patri9ck.dev/a2ln](https://www.patri9ck.dev/a2ln/).
 
 ## License
-A2LN is licensed under the [GPL3](COPYING).
+A2LN is licensed under the [GPL](COPYING).
