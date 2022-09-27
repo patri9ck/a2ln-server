@@ -5,10 +5,13 @@ DESTDIR :=
 
 install: a2ln
 	install -Dm777 "$(BIN)" "$(DESTDIR)$(PREFIX)$(BIN)"
-	cp a2ln.service /etc/systemd/system/$(BIN).service
+	cp $(BIN).service /etc/systemd/system/$(BIN).service
 	sed -i 's/PORT/$(PORT)/g' /etc/systemd/system/$(BIN).service
 	systemctl daemon-reload
+	systemctl start $(BIN).service
+	sudo journalctl -u a2ln -b | tail -n 20
 
 uninstall:
+	systemctl stop $(BIN).service
 	rm -f "$(DESTDIR)$(PREFIX)$(BIN)"
 	rm -f /etc/systemd/system/$(BIN).service

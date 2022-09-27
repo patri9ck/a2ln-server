@@ -3,7 +3,7 @@ Description=a2ln notification server
 
 [Service]
 ExecStart=/usr/local/bin/a2ln PORT
-estart=always
+Restart=always
 
 [Install]
 WantedBy=multi-user.target
