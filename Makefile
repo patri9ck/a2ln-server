@@ -9,7 +9,7 @@ install: a2ln
 	sed -i 's/PORT/$(PORT)/g' /etc/systemd/system/$(BIN).service
 	systemctl daemon-reload
 	systemctl start $(BIN).service
-	sudo journalctl -u $(BIN) -b | tail -n 20
+	journalctl -u $(BIN) -b | tail -n 20
 
 uninstall:
 	systemctl stop $(BIN).service
