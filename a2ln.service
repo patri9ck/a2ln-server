@@ -1,0 +1,9 @@
+[Unit]
+Description=Notification server
+
+[Service]
+ExecStart=/usr/local/bin/a2ln 8888
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
