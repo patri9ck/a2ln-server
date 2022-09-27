@@ -269,12 +269,12 @@ class PairServer(threading.Thread):
                 print(f"IP: {BOLD}{client_ip}{RESET}")
                 print(f"Public Key: {BOLD}{client_public_key}{RESET}")
 
-                if input("\nAccept? (Yes/No): ").lower() != "yes":
-                    print("Pairing cancelled.")
+                #if input("\nAccept? (Yes/No): ").lower() != "yes":
+                 #   print("Pairing cancelled.")
 
-                    server.send_multipart([b""])
+                  #  server.send_multipart([b""])
 
-                    continue
+                   # continue
 
                 with open((self.client_public_keys_directory / client_ip).as_posix() + ".key", "w",
                           encoding="utf-8") as client_key_file:
