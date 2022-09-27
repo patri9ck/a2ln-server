@@ -1,0 +1,9 @@
+[Unit]
+Description=a2ln notification server
+
+[Service]
+ExecStart=/usr/local/bin/a2ln PORT
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
