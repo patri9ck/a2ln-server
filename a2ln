@@ -118,16 +118,15 @@ def send_notification(title: str, text: str, picture_file: tempfile = None):
 
 
 def handle_exception(name: str, error: zmq.error.ZMQError) -> None:
-    match error.errno:
-        case zmq.EADDRINUSE:
-            print(f"{RED_PREFIX}Cannot start {name} server: Port already used")
-        case 13:
-            print(
-                f"{RED_PREFIX}Cannot start {name} server: No permission (note that you must use a port higher than 1023 if you are not root)")
-        case _:
-            print(f"{RED_PREFIX}Cannot start {name} server:")
+    if error.errno == zmq.EADDRINUSE:
+        print(f"{RED_PREFIX}Cannot start {name} server: Port already used")
+    elif error.errno == 13:
+        print(
+            f"{RED_PREFIX}Cannot start {name} server: No permission (note that you must use a port higher than 1023 if you are not root)")
+    else:
+        print(f"{RED_PREFIX}Cannot start {name} server:")
 
-            traceback.print_exc()
+        traceback.print_exc()
 
 
 class NotificationServer(threading.Thread):
