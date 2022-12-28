@@ -91,7 +91,7 @@ def parse_args() -> Namespace:
 
     argument_parser.add_argument("--notification-address", type=str, default="127.0.0.1",
                                  help="The address to listen for notifications (by default 127.0.0.1")
-    argument_parser.add_argument("--notification-port", type=int, nargs="?", default=23045,
+    argument_parser.add_argument("--notification-port", type=int, default=23045,
                                  help="The port to listen for notifications")
     argument_parser.add_argument("--pairing-address", type=str, default="127.0.0.1",
                                  help="The address to listen for pairing requests (by default 127.0.0.1")
