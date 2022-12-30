@@ -32,4 +32,4 @@ dependencies = [
 "Bug Tracker" = "https://github.com/patri9ck/a2ln-server/issues"
 
 [project.scripts]
-a2ln = "a2ln_server:main"
+a2ln = "a2ln:main"

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 #  Copyright (C) 2022  Patrick Zwick and contributors
 #
 #  This program is free software: you can redistribute it and/or modify
@@ -289,12 +287,3 @@ class PairServer(threading.Thread):
                 self.notification_server.update_client_public_keys()
 
                 print("Pairing finished.")
-
-
-if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\r", end="")
-
-        exit()
