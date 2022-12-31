@@ -1,3 +1,4 @@
-/.idea
-/venv
-/dist/
+.idea/
+venv/
+dist/
+src/a2ln.egg-info/
