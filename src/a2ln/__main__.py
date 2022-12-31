@@ -1,4 +1,4 @@
-from a2ln import main
+from .a2ln import main
 
 if __name__ == '__main__':
     try:

@@ -1,35 +1,33 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
-name = "a2ln_server"
-version = "1.1.4"
-authors = [
-  { name="patri9ck", email="patri9ck@gmail.com" },
-]
-description = "A way to display your Android phone notifications on your Linux computer."
+name = "a2ln"
+version = "1.1.5"
+description = "A way to display Android phone notifications on Linux"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+authors = [
+    { name = "patri9ck", email = "patri9ck@gmail.com" },
+]
 classifiers = [
-    "Programming Language :: Python :: 3 :: Only",
-    #"Programming Language :: Python :: 3.8",
-    #"Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Operating System :: OS Independent",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+    "Programming Language :: Python",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Desktop Environment",
+    "Topic :: Utilities"
 ]
-license = {text = "GNU General Public License v3.0"}
-dependencies = [
-  'Pillow >= 9.0.1',
-  'PyGObject >=3.42.1',
-  'pyzmq >= 24.0.0',
-  'setproctitle >= 1.2.2',
-  'qrcode >= 7.3.1',
-]
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
 
 [project.urls]
-"Homepage" = "https://github.com/patri9ck/a2ln-server"
-"Bug Tracker" = "https://github.com/patri9ck/a2ln-server/issues"
+Homepage = "https://patri9ck.dev/a2ln/"
+Repository = "https://github.com/patri9ck/a2ln-server"
+Issues = "https://github.com/patri9ck/a2ln-server/issues"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 
 [project.scripts]
 a2ln = "a2ln:main"
