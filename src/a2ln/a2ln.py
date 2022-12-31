@@ -51,39 +51,44 @@ RED_PREFIX = f"{RED}{PREFIX}{RESET}"
 
 
 def main():
-    setproctitle.setproctitle("a2ln")
+    try:
+        setproctitle.setproctitle("a2ln")
 
-    main_directory = Path(Path.home(), os.environ.get("XDG_CONFIG_HOME") or ".config", "a2ln")
+        main_directory = Path(Path.home(), os.environ.get("XDG_CONFIG_HOME") or ".config", "a2ln")
 
-    client_public_keys_directory = main_directory / "clients"
-    own_keys_directory = main_directory / "server"
+        client_public_keys_directory = main_directory / "clients"
+        own_keys_directory = main_directory / "server"
 
-    main_directory.mkdir(exist_ok=True)
+        main_directory.mkdir(exist_ok=True)
 
-    client_public_keys_directory.mkdir(exist_ok=True)
+        client_public_keys_directory.mkdir(exist_ok=True)
 
-    if not own_keys_directory.exists():
-        own_keys_directory.mkdir()
+        if not own_keys_directory.exists():
+            own_keys_directory.mkdir()
 
-        zmq.auth.create_certificates(own_keys_directory, "server")
+            zmq.auth.create_certificates(own_keys_directory, "server")
 
-    args = parse_args()
+        args = parse_args()
 
-    own_public_key, own_secret_key = zmq.auth.load_certificate(own_keys_directory / "server.key_secret")
+        own_public_key, own_secret_key = zmq.auth.load_certificate(own_keys_directory / "server.key_secret")
 
-    notification_server = NotificationServer(client_public_keys_directory, own_public_key, own_secret_key,
-                                             args.notification_ip, args.notification_port, args.title_format,
-                                             args.command)
+        notification_server = NotificationServer(client_public_keys_directory, own_public_key, own_secret_key,
+                                                 args.notification_ip, args.notification_port, args.title_format,
+                                                 args.command)
 
-    notification_server.start()
+        notification_server.start()
 
-    time.sleep(1)
-
-    PairServer(client_public_keys_directory, own_public_key, args.pairing_ip, args.pairing_port,
-               notification_server).start()
-
-    while True:
         time.sleep(1)
+
+        PairServer(client_public_keys_directory, own_public_key, args.pairing_ip, args.pairing_port,
+                   notification_server).start()
+
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\r", end="")
+
+        exit()
 
 
 def parse_args() -> Namespace:
@@ -292,9 +297,4 @@ class PairServer(threading.Thread):
 
 
 if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\r", end="")
-
-        exit()
+    main()
