@@ -188,7 +188,8 @@ class NotificationServer(threading.Thread):
 
                 inform("notification", ip=self.ip, port=self.port)
 
-                print("Do not forget to autostart the notification server. More information can be found at https://patri9ck.dev/a2ln/server.html#autostarting.")
+                print(
+                    "Do not forget to autostart the notification server. More information can be found at https://patri9ck.dev/a2ln/server.html#autostarting.")
 
                 Notify.init("Android 2 Linux Notifications")
 
@@ -258,7 +259,8 @@ class PairServer(threading.Thread):
 
             inform("pairing", ip=self.ip, port=self.port)
 
-            print("To pair a new device, open the Android 2 Linux Notifications app and scan this QR code or enter the following:")
+            print(
+                "To pair a new device, open the Android 2 Linux Notifications app and scan this QR code or enter the following:")
             print(f"IP: {BOLD}{ip}{RESET}")
             print(f"Port: {BOLD}{self.port}{RESET}")
             print(f"{GREEN_PREFIX}Public Key: {BOLD}{self.own_public_key.decode('utf-8')}{RESET}")
@@ -294,7 +296,3 @@ class PairServer(threading.Thread):
                 self.notification_server.update_client_public_keys()
 
                 print("Pairing finished.")
-
-
-if __name__ == '__main__':
-    main()
