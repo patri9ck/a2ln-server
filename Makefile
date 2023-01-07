@@ -14,6 +14,8 @@ else
 	python3 -m pip install --no-deps dist/$(BIN).tar.gz
 endif
 
+	install -Dm644 "$(BIN).service" "$(DESTDIR)/usr/lib/systemd/user/$(BIN).service"
+
 uninstall:
 	python3 -m pip uninstall -y $(BIN)
 
