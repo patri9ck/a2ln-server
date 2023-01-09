@@ -117,7 +117,7 @@ def get_ip() -> str:
         return client.getsockname()[0]
 
 
-def send_notification(title: str, text: str, picture_file: tempfile = None):
+def send_notification(title: str, text: str, picture_file: tempfile = None) -> None:
     if picture_file is None:
         Notify.Notification.new(title, text, "dialog-information").show()
     else:
