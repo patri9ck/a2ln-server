@@ -1,23 +1,27 @@
-PREFIX := /usr/bin/
 BIN := a2ln
 DESTDIR :=
 
-all: clean
-	python3 -m build -s -n
-
-	mv dist/$(BIN)-*.tar.gz dist/$(BIN).tar.gz
-
 install:
 ifdef DESTDIR
-	python3 -m pip install --no-deps -t $(DESTDIR) -U dist/$(BIN).tar.gz
+	@python3 -m pip install --no-deps --prefix $(DESTDIR) .
+
+	@install -Dm644 "$(BIN).service" "$(DESTDIR)/usr/lib/systemd/user/$(BIN).service"
 else
-	python3 -m pip install --no-deps dist/$(BIN).tar.gz
+	@python3 -m pip install --no-deps .
+ifeq ($(shell id -u), 0)
+	@install -Dm644 "$(BIN).service" "/usr/lib/systemd/user/$(BIN).service"
+else
+	@install -Dm644 "$(BIN).service" "${HOME}/.local/share/systemd/user/$(BIN).service"
+endif
 endif
 
-	install -Dm644 "$(BIN).service" "$(DESTDIR)/usr/lib/systemd/user/$(BIN).service"
-
 uninstall:
-	python3 -m pip uninstall -y $(BIN)
+	@python3 -m pip uninstall -y $(BIN)
+ifeq ($(shell id -u), 0)
+	@rm -f "/usr/lib/systemd/user/$(BIN).service"
+else
+	@rm -f "${HOME}/.local/share/systemd/user/$(BIN).service"
+endif
 
 clean:
-	rm -rf dist src/$(BIN).egg-info
+	@rm -rf build src/$(BIN).egg-info
