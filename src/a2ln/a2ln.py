@@ -51,39 +51,44 @@ RED_PREFIX = f"{RED}{PREFIX}{RESET}"
 
 
 def main():
-    setproctitle.setproctitle("a2ln")
+    try:
+        setproctitle.setproctitle("a2ln")
 
-    main_directory = Path(Path.home(), os.environ.get("XDG_CONFIG_HOME") or ".config", "a2ln")
+        main_directory = Path(Path.home(), os.environ.get("XDG_CONFIG_HOME") or ".config", "a2ln")
 
-    client_public_keys_directory = main_directory / "clients"
-    own_keys_directory = main_directory / "server"
+        client_public_keys_directory = main_directory / "clients"
+        own_keys_directory = main_directory / "server"
 
-    main_directory.mkdir(exist_ok=True)
+        main_directory.mkdir(exist_ok=True)
 
-    client_public_keys_directory.mkdir(exist_ok=True)
+        client_public_keys_directory.mkdir(exist_ok=True)
 
-    if not own_keys_directory.exists():
-        own_keys_directory.mkdir()
+        if not own_keys_directory.exists():
+            own_keys_directory.mkdir()
 
-        zmq.auth.create_certificates(own_keys_directory, "server")
+            zmq.auth.create_certificates(own_keys_directory, "server")
 
-    args = parse_args()
+        args = parse_args()
 
-    own_public_key, own_secret_key = zmq.auth.load_certificate(own_keys_directory / "server.key_secret")
+        own_public_key, own_secret_key = zmq.auth.load_certificate(own_keys_directory / "server.key_secret")
 
-    notification_server = NotificationServer(client_public_keys_directory, own_public_key, own_secret_key,
-                                             args.notification_ip, args.notification_port, args.title_format,
-                                             args.command)
+        notification_server = NotificationServer(client_public_keys_directory, own_public_key, own_secret_key,
+                                                 args.notification_ip, args.notification_port, args.title_format,
+                                                 args.command)
 
-    notification_server.start()
+        notification_server.start()
 
-    time.sleep(1)
-
-    PairServer(client_public_keys_directory, own_public_key, args.pairing_ip, args.pairing_port,
-               notification_server).start()
-
-    while True:
         time.sleep(1)
+
+        PairServer(client_public_keys_directory, own_public_key, args.pairing_ip, args.pairing_port,
+                   notification_server).start()
+
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\r", end="")
+
+        exit()
 
 
 def parse_args() -> Namespace:
@@ -112,7 +117,7 @@ def get_ip() -> str:
         return client.getsockname()[0]
 
 
-def send_notification(title: str, text: str, picture_file: tempfile = None):
+def send_notification(title: str, text: str, picture_file: tempfile = None) -> None:
     if picture_file is None:
         Notify.Notification.new(title, text, "dialog-information").show()
     else:
@@ -183,7 +188,8 @@ class NotificationServer(threading.Thread):
 
                 inform("notification", ip=self.ip, port=self.port)
 
-                print("Do not forget to autostart the notification server. More information can be found at https://patri9ck.dev/a2ln/server.html#autostarting.")
+                print(
+                    "Do not forget to autostart the notification server. More information can be found at https://patri9ck.dev/a2ln/server.html#autostarting.")
 
                 Notify.init("Android 2 Linux Notifications")
 
@@ -253,7 +259,8 @@ class PairServer(threading.Thread):
 
             inform("pairing", ip=self.ip, port=self.port)
 
-            print("To pair a new device, open the Android 2 Linux Notifications app and scan this QR code or enter the following:")
+            print(
+                "To pair a new device, open the Android 2 Linux Notifications app and scan this QR code or enter the following:")
             print(f"IP: {BOLD}{ip}{RESET}")
             print(f"Port: {BOLD}{self.port}{RESET}")
             print(f"{GREEN_PREFIX}Public Key: {BOLD}{self.own_public_key.decode('utf-8')}{RESET}")
@@ -289,12 +296,3 @@ class PairServer(threading.Thread):
                 self.notification_server.update_client_public_keys()
 
                 print("Pairing finished.")
-
-
-if __name__ == '__main__':
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\r", end="")
-
-        exit()
