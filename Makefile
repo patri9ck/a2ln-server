@@ -5,7 +5,7 @@ DESTDIR :=
 
 install:
 ifeq ($(shell [ "$(shell id -u)" = 0 ] || [ -n "$(DESTDIR)" ] && echo 0), 0)
-	@python3 -m pip install $(FLAGS) --prefix $(DESTDIR)/$(PREFIX) .
+	@python3 -m pip install $(FLAGS) -I --prefix $(DESTDIR)/$(PREFIX) .
 
 	@install -Dm644 "$(BIN).service" "$(DESTDIR)/$(PREFIX)/lib/systemd/user/$(BIN).service"
 else
