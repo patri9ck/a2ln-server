@@ -222,9 +222,12 @@ class NotificationServer(threading.Thread):
                     else:
                         picture_file = None
 
+                    app = request[0].decode("utf-8")
+                    title = request[1].decode("utf-8")
+                    body = request[2].decode("utf-8")
+
                     def replace(text: str) -> str:
-                        return text.replace("{app}", request[0].decode("utf-8")).replace("{title}", request[1].decode(
-                            "utf-8")).replace("{body}", request[2].decode("utf-8"))
+                        return text.replace("{app}", app).replace("{title}", title).replace("{body}", body)
 
                     threading.Thread(target=send_notification,
                                      args=(replace(self.title_format), replace(self.body_format), picture_file),
