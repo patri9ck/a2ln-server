@@ -9,7 +9,7 @@ authors = [
     { name = "patri9ck", email = "patri9ck@gmail.com" },
 ]
 classifiers = [
-    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Programming Language :: Python",
     "Operating System :: POSIX :: Linux",
     "Topic :: Desktop Environment",
