@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Installation Help
+    url: https://patri9ck.dev/a2ln/server.html
+    about: Everything you will need to install the server
