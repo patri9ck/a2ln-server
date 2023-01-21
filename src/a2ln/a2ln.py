@@ -70,18 +70,27 @@ def main():
 
         own_public_key, own_secret_key = zmq.auth.load_certificate(own_keys_directory / "server.key_secret")
 
-        notification_server = NotificationServer(client_public_keys_directory, own_public_key, own_secret_key,
-                                                 args.notification_ip, args.notification_port, args.title_format,
-                                                 args.command)
+        notification_server = None
+        pairing_server = None
 
-        notification_server.start()
+        if not args.no_notification_server:
+            notification_server = NotificationServer(client_public_keys_directory, own_public_key, own_secret_key,
+                                                     args.notification_ip, args.notification_port, args.title_format,
+                                                     args.body_format,
+                                                     args.command)
 
-        time.sleep(1)
+            notification_server.start()
 
-        PairServer(client_public_keys_directory, own_public_key, args.pairing_ip, args.pairing_port,
-                   notification_server).start()
+        if not args.no_pairing_server:
+            if notification_server is not None:
+                time.sleep(1)
 
-        while True:
+            pairing_server = PairingServer(client_public_keys_directory, own_public_key, args.pairing_ip,
+                                           args.pairing_port, notification_server)
+
+            pairing_server.start()
+
+        while notification_server is not None or pairing_server is not None:
             time.sleep(1)
     except KeyboardInterrupt:
         print("\r", end="")
@@ -92,16 +101,22 @@ def main():
 def parse_args() -> Namespace:
     argument_parser = argparse.ArgumentParser(description="A way to display Android phone notifications on Linux")
 
+    argument_parser.add_argument("--no-notification-server", action="store_true", default=False,
+                                 help="Do not start the notification server")
     argument_parser.add_argument("--notification-ip", type=str, default="*",
                                  help="The IP to listen for notifications (by default *)")
     argument_parser.add_argument("--notification-port", type=int, default=23045,
                                  help="The port to listen for notifications (by default 23045)")
+    argument_parser.add_argument("--no-pairing-server", action="store_true", default=False,
+                                 help="Do not start the pairing server")
     argument_parser.add_argument("--pairing-ip", type=str, default="*",
                                  help="The IP to listen for pairing requests (by default *)")
     argument_parser.add_argument("--pairing-port", type=int,
                                  help="The port to listen for pairing requests (by default random)")
     argument_parser.add_argument("--title-format", type=str, default="{title}",
-                                 help="The format of the title. Available placeholders: {app}, {title} (by default {title})")
+                                 help="The format of the title. Available placeholders: {app}, {title}, {body} (by default {title})")
+    argument_parser.add_argument("--body-format", type=str, default="{body}",
+                                 help="The format of the body. Available placeholders: {app}, {title}, {body} (by default {body})")
     argument_parser.add_argument("--command", type=str,
                                  help="A shell command to run whenever a notification arrives. Available placeholders: {app}, {title}, {body} (by default none)")
 
@@ -147,7 +162,7 @@ def inform(name: str, ip: str = None, port: int = None, error: zmq.error.ZMQErro
 
 class NotificationServer(threading.Thread):
     def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, own_secret_key: bytes, ip: str,
-                 port: int, title_format: str, command: str):
+                 port: int, title_format: str, body_format: str, command: str):
         super(NotificationServer, self).__init__(daemon=True)
 
         self.client_public_keys_directory = client_public_keys_directory
@@ -156,6 +171,7 @@ class NotificationServer(threading.Thread):
         self.ip = ip
         self.port = port
         self.title_format = title_format
+        self.body_format = body_format
         self.command = command
         self.authenticator = None
 
@@ -206,27 +222,26 @@ class NotificationServer(threading.Thread):
                     else:
                         picture_file = None
 
-                    app = request[0].decode("utf-8")
-                    title = request[1].decode("utf-8")
-                    body = request[2].decode("utf-8")
+                    def replace(text: str) -> str:
+                        return text.replace("{app}", request[0].decode("utf-8")).replace("{title}", request[1].decode(
+                            "utf-8")).replace("{body}", request[2].decode("utf-8"))
 
-                    threading.Thread(target=send_notification, args=(self.title_format.replace("{app}", app).replace(
-                        "{title}", title), body, picture_file), daemon=True).start()
+                    threading.Thread(target=send_notification,
+                                     args=(replace(self.title_format), replace(self.body_format), picture_file),
+                                     daemon=True).start()
 
                     if self.command is not None:
-                        subprocess.Popen(
-                            self.command.replace("{app}", app).replace("{title}", title).replace("{body}", body),
-                            shell=True)
+                        subprocess.Popen(replace(self.command), shell=True)
 
     def update_client_public_keys(self) -> None:
         if self.authenticator is not None and self.authenticator.is_alive():
             self.authenticator.configure_curve(domain="*", location=self.client_public_keys_directory.as_posix())
 
 
-class PairServer(threading.Thread):
+class PairingServer(threading.Thread):
     def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, ip: str, port: int,
                  notification_server: NotificationServer):
-        super(PairServer, self).__init__(daemon=True)
+        super(PairingServer, self).__init__(daemon=True)
 
         self.client_public_keys_directory = client_public_keys_directory
         self.own_public_key = own_public_key
@@ -235,7 +250,7 @@ class PairServer(threading.Thread):
         self.notification_server = notification_server
 
     def run(self) -> None:
-        super(PairServer, self).run()
+        super(PairingServer, self).run()
 
         with zmq.Context() as context, context.socket(zmq.REP) as server:
             try:
@@ -291,6 +306,7 @@ class PairServer(threading.Thread):
 
                 server.send_multipart([str(self.notification_server.port).encode("utf-8"), self.own_public_key])
 
-                self.notification_server.update_client_public_keys()
+                if self.notification_server is not None:
+                    self.notification_server.update_client_public_keys()
 
                 print("Pairing finished.")
