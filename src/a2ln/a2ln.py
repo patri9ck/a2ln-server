@@ -222,17 +222,17 @@ class NotificationServer(threading.Thread):
                     else:
                         picture_file = None
 
-                    app = request[0].decode("utf-8")
-                    title = request[1].decode("utf-8")
-                    body = request[2].decode("utf-8")
+                    def replace(text: str) -> str:
+                        return text.replace("{app}", request[0].decode("utf-8")).replace("{title}", request[1].decode(
+                            "utf-8")).replace("{body}", request[2].decode("utf-8"))
 
-                    threading.Thread(target=send_notification, args=(self.title_format.replace("{app}", app).replace(
-                        "{title}", title).replace("{body}", body), self.body_format.replace("{app}", app).replace(
-                        "{title}", title).replace("{body}", body), picture_file), daemon=True).start()
+                    threading.Thread(target=send_notification,
+                                     args=(replace(self.title_format), replace(self.body_format), picture_file),
+                                     daemon=True).start()
 
                     if self.command is not None:
                         subprocess.Popen(
-                            self.command.replace("{app}", app).replace("{title}", title).replace("{body}", body),
+                            replace(self.command),
                             shell=True)
 
     def update_client_public_keys(self) -> None:
