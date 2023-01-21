@@ -1,4 +1,5 @@
 .idea/
 venv/
+build/
 dist/
 src/a2ln.egg-info/
