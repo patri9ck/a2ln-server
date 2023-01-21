@@ -116,7 +116,7 @@ def parse_args() -> Namespace:
                                  help="The port to listen for pairing requests (by default random)")
     argument_parser.add_argument("--title-format", type=str, default="{title}",
                                  help="The format of the title. Available placeholders: {app}, {title}, {body} (by default {title})")
-    argument_parser.add_argument("--body-format", type=str, default="{title}",
+    argument_parser.add_argument("--body-format", type=str, default="{body}",
                                  help="The format of the body. Available placeholders: {app}, {title}, {body} (by default {body})")
     argument_parser.add_argument("--command", type=str,
                                  help="A shell command to run whenever a notification arrives. Available placeholders: {app}, {title}, {body} (by default none)")
