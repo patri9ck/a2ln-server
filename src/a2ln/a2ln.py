@@ -75,12 +75,11 @@ def main():
 
         if not args.no_notification_server:
             notification_server = NotificationServer(client_public_keys_directory, own_public_key, own_secret_key,
-                                                     args.notification_ip, args.notification_port, args.title_format, args.body_format,
+                                                     args.notification_ip, args.notification_port, args.title_format,
+                                                     args.body_format,
                                                      args.command)
 
             notification_server.start()
-
-            time.sleep(1)
 
         if not args.no_pairing_server:
             if notification_server is not None:
