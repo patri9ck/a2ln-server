@@ -93,17 +93,17 @@ def parse_args() -> Namespace:
     argument_parser = argparse.ArgumentParser(description="A way to display Android phone notifications on Linux")
 
     argument_parser.add_argument("--notification-ip", type=str, default="*",
-                                 help="The IP to listen for notifications (by default *")
+                                 help="The IP to listen for notifications (by default *)")
     argument_parser.add_argument("--notification-port", type=int, default=23045,
-                                 help="The port to listen for notifications")
+                                 help="The port to listen for notifications (by default 23045)")
     argument_parser.add_argument("--pairing-ip", type=str, default="*",
-                                 help="The IP to listen for pairing requests (by default *")
+                                 help="The IP to listen for pairing requests (by default *)")
     argument_parser.add_argument("--pairing-port", type=int,
                                  help="The port to listen for pairing requests (by default random)")
     argument_parser.add_argument("--title-format", type=str, default="{title}",
-                                 help="The format of the title. Available placeholders: {app}, {title}")
+                                 help="The format of the title. Available placeholders: {app}, {title} (by default {title})")
     argument_parser.add_argument("--command", type=str,
-                                 help="A shell command to run whenever a notification arrives. Available placeholders: {app}, {title}, {body}")
+                                 help="A shell command to run whenever a notification arrives. Available placeholders: {app}, {title}, {body} (by default none)")
 
     return argument_parser.parse_args()
 
