@@ -2,7 +2,7 @@
 name = "a2ln"
 version = "1.1.8"
 description = "A way to display Android phone notifications on Linux"
-readme = "README.md"
+readme = "pypi.md"
 requires-python = ">=3.8"
 license = { file = "COPYING" }
 authors = [
@@ -18,7 +18,7 @@ classifiers = [
 dynamic = ["dependencies"]
 
 [tool.setuptools.dynamic]
-dependencies = {file = ["requirements.txt"]}
+dependencies = { file = ["requirements.txt"] }
 
 [project.urls]
 Homepage = "https://patri9ck.dev/a2ln/"

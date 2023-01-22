@@ -82,7 +82,7 @@ def main():
             notification_server.start()
 
         if not args.no_pairing_server:
-            if notification_server is not None:
+            if notification_server is not None and notification_server.is_alive():
                 time.sleep(1)
 
             pairing_server = PairingServer(client_public_keys_directory, own_public_key, args.pairing_ip,
@@ -90,7 +90,7 @@ def main():
 
             pairing_server.start()
 
-        while notification_server is not None or pairing_server is not None:
+        while notification_server is not None and notification_server.is_alive() or pairing_server is not None and pairing_server.is_alive():
             time.sleep(1)
     except KeyboardInterrupt:
         print("\r", end="")
