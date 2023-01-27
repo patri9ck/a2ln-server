@@ -12,6 +12,7 @@ else
 	@python3 -m pip install $(FLAGS) .
 
 	@install -Dm644 "$(BIN).service" "${HOME}/.local/share/systemd/user/$(BIN).service"
+	@sed -i 's/ExecStart=.*/ExecStart=%h\/.local\/bin\/a2ln --no-pairing-server/' "${HOME}/.local/share/systemd/user/$(BIN).service"
 endif
 
 uninstall:
