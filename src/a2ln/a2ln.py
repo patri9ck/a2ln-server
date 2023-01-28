@@ -76,9 +76,8 @@ def main():
 
         if not args.no_notification_server:
             notification_server = NotificationServer(client_public_keys_directory, own_public_key, own_secret_key,
-                                                     args.notification_ip, args.notification_port, args.title_format,
-                                                     args.body_format,
-                                                     args.command)
+                                                     args.notification_ip, args.notification_port, args.command, args.title_format,
+                                                     args.body_format)
 
             notification_server.start()
 
@@ -164,7 +163,7 @@ def inform(name: str, ip: Optional[str] = None, port: Optional[int] = None,
 
 class NotificationServer(threading.Thread):
     def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, own_secret_key: bytes, ip: str,
-                 port: int, title_format: str, body_format: str, command: Optional[str]):
+                 port: int, command: Optional[str], title_format: Optional[str], body_format: Optional[str]):
         super(NotificationServer, self).__init__(daemon=True)
 
         self.client_public_keys_directory = client_public_keys_directory
@@ -172,9 +171,9 @@ class NotificationServer(threading.Thread):
         self.own_secret_key = own_secret_key
         self.ip = ip
         self.port = port
-        self.title_format = title_format
-        self.body_format = body_format
         self.command = command
+        self.title_format = "{title}" if title_format is None else title_format
+        self.body_format = "{body}" if body_format is None else body_format
 
         self.authenticator: Optional[zmq.auth.thread.ThreadAuthenticator] = None
 
