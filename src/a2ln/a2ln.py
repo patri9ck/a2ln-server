@@ -76,7 +76,8 @@ def main():
 
         if not args.no_notification_server:
             notification_server = NotificationServer(client_public_keys_directory, own_public_key, own_secret_key,
-                                                     args.notification_ip, args.notification_port, args.command, args.title_format,
+                                                     args.notification_ip, args.notification_port, args.command,
+                                                     args.title_format,
                                                      args.body_format)
 
             notification_server.start()
