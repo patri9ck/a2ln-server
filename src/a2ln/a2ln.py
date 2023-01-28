@@ -23,8 +23,8 @@ import threading
 import time
 import traceback
 from argparse import Namespace
-from typing import Optional
 from pathlib import Path
+from typing import Optional
 
 import gi
 import qrcode
@@ -142,7 +142,8 @@ def send_notification(title: str, text: str, picture_file: Optional[tempfile._Te
     print(f"{GREEN_PREFIX}Sent notification (Title: {BOLD}{title}{RESET}, Text: {BOLD}{text}{RESET})")
 
 
-def inform(name: str, ip: Optional[str] = None, port: Optional[int] = None, error: zmq.error.ZMQError = None) -> None:
+def inform(name: str, ip: Optional[str] = None, port: Optional[int] = None,
+           error: Optional[zmq.error.ZMQError] = None) -> None:
     if error is None:
         print(
             f"{GREEN_PREFIX}{name.capitalize()} server running on IP {BOLD}{ip}{RESET} and port {BOLD}{port}{RESET}.")
@@ -163,7 +164,7 @@ def inform(name: str, ip: Optional[str] = None, port: Optional[int] = None, erro
 
 class NotificationServer(threading.Thread):
     def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, own_secret_key: bytes, ip: str,
-                 port: int, title_format: str, body_format: str, command: str):
+                 port: int, title_format: str, body_format: str, command: Optional[str]):
         super(NotificationServer, self).__init__(daemon=True)
 
         self.client_public_keys_directory = client_public_keys_directory
@@ -174,6 +175,7 @@ class NotificationServer(threading.Thread):
         self.title_format = title_format
         self.body_format = body_format
         self.command = command
+
         self.authenticator: Optional[zmq.auth.thread.ThreadAuthenticator] = None
 
     def run(self) -> None:
@@ -240,8 +242,8 @@ class NotificationServer(threading.Thread):
 
 
 class PairingServer(threading.Thread):
-    def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, ip: str, port: int,
-                 notification_server: NotificationServer):
+    def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, ip: str, port: Optional[int],
+                 notification_server: Optional[NotificationServer]):
         super(PairingServer, self).__init__(daemon=True)
 
         self.client_public_keys_directory = client_public_keys_directory
