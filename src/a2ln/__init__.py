@@ -1,3 +1,4 @@
+#  Android 2 Linux Notifications - A way to display Android phone notifications on Linux
 #  Copyright (C) 2023  Patrick Zwick and contributors
 #
 #  This program is free software: you can redistribute it and/or modify
