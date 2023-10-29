@@ -253,7 +253,7 @@ class NotificationServer(threading.Thread):
                                      daemon=True).start()
 
                     if self.command is not None:
-                        subprocess.Popen(replace(self.command), shell=False)
+                        subprocess.Popen(replace(self.command), shell=True)
 
     def update_client_public_keys(self) -> None:
         if self.authenticator is not None and self.authenticator.is_alive():
