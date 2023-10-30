@@ -1,27 +1,22 @@
 PREFIX := /usr
 BIN := a2ln
-FLAGS :=
 DESTDIR :=
 
-install:
-ifeq ($(shell [ "$(shell id -u)" = 0 ] || [ -n "$(DESTDIR)" ] && echo 0), 0)
-	@python3 -m pip install $(FLAGS) -I --prefix $(DESTDIR)/$(PREFIX) .
+dist/*.whl:
+	@python -m build --wheel --no-isolation
 
-	@install -Dm644 "$(BIN)-system.service" "$(DESTDIR)/$(PREFIX)/lib/systemd/user/$(BIN).service"
+install: dist/*.whl
+ifdef DESTDIR
+	@python -m installer -p "$(PREFIX)" -d "$(DESTDIR)" dist/*.whl
 else
-	@python3 -m pip install $(FLAGS) .
-
-	@install -Dm644 "$(BIN)-user.service" "${HOME}/.local/share/systemd/user/$(BIN).service"
+	@python -m installer -p "$(PREFIX)" dist/*.whl
 endif
+	@install -Dm644 "$(BIN).service" "$(DESTDIR)/usr/lib/systemd/user/$(BIN).service"
 
 uninstall:
-	@python3 -m pip uninstall -y $(BIN)
+	@python -m pip uninstall --break-system-packages -y $(BIN)
 
-ifeq ($(shell id -u), 0)
-	@rm -f "$(PREFIX)/lib/systemd/user/$(BIN).service"
-else
-	@rm -f "${HOME}/.local/share/systemd/user/$(BIN).service"
-endif
+	@rm -f "/usr/lib/systemd/user/$(BIN).service"
 
 clean:
 	@rm -rf build dist src/$(BIN).egg-info

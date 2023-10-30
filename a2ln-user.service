@@ -1,8 +1,0 @@
-[Unit]
-Description=Android 2 Linux Notifications Server
-
-[Service]
-ExecStart=%h/.local/bin/a2ln --no-pairing-server
-
-[Install]
-WantedBy=default.target
