@@ -24,8 +24,8 @@ import tempfile
 import threading
 import time
 import traceback
-from importlib import metadata
 from argparse import Namespace
+from importlib import metadata
 from pathlib import Path
 from typing import Optional
 
@@ -43,8 +43,6 @@ from gi.repository import Notify  # type: ignore # noqa: E402
 
 BOLD = "\033[1m"
 RESET = "\033[0m"
-
-DEFAULT_PORT = 23045
 
 
 def main():
@@ -86,9 +84,9 @@ def main():
 
     server = None
 
-    if args.command == "pairing":
+    if args.command == "pair":
         server = PairingServer(clients_directory, own_public_key, args.ip,
-                               args.port, args.notification_port)
+                               args.port)
     elif own_secret_key:
         server = NotificationServer(clients_directory, own_public_key, own_secret_key,
                                     args.ip, args.port, args.command,
@@ -105,34 +103,33 @@ def main():
             while server.is_alive():
                 time.sleep(1)
         except KeyboardInterrupt:
-            pass
+            print("\r", end="")
 
 
 def parse_args() -> Namespace:
     argument_parser = argparse.ArgumentParser(description="A way to display Android phone notifications on Linux")
 
-    argument_parser.add_argument("--ip", type=str, default="*",
-                                 help="The IP to listen (by default *)")
-    argument_parser.add_argument("--port", type=int, default=DEFAULT_PORT,
-                                 help=f"The port to listen (by default {DEFAULT_PORT})")
-    argument_parser.add_argument("--title-format", type=str, default="{title}",
-                                 help="The format of the title. Available placeholders: {app}, {title}, {body} (by default {title})")
-    argument_parser.add_argument("--body-format", type=str, default="{body}",
-                                 help="The format of the body. Available placeholders: {app}, {title}, {body} (by default {body})")
-    argument_parser.add_argument("--command", type=str,
-                                 help="A shell command to run whenever a notification arrives. Available placeholders: {app}, {title}, {body} (by default none)")
+    argument_parser.add_argument("--ip", type=str, default="*", help="The IP to listen (by default *)")
+    argument_parser.add_argument("--port", type=int, default=23045,help=f"The port to listen (by default 23045))")
+    argument_parser.add_argument("--title-format", type=str, default="{title}",help="The format of the title. "
+                                                                                    "Available placeholders: {app}, "
+                                                                                    "{title}, {body} (by default {"
+                                                                                    "title})")
+    argument_parser.add_argument("--body-format", type=str, default="{body}", help="The format of the body. Available "
+                                                                                   "placeholders: {app}, {title}, "
+                                                                                   "{body} (by default {body})")
+    argument_parser.add_argument("--command", type=str, help="A shell command to run whenever a notification arrives. "
+                                                             "Available placeholders: {app}, {title}, {body} (by "
+                                                             "default none)")
 
-    subparser = argument_parser.add_subparsers(title="commands", dest="command")
+    sub_parser = argument_parser.add_subparsers(title="commands", dest="command")
 
-    subparser.add_parser("version", help="Show the version and exit")
+    sub_parser.add_parser("version", help="Show the version and exit")
 
-    pairing_parser = subparser.add_parser("pairing", help="Run the pairing server")
+    pairing_parser = sub_parser.add_parser("pair", help="Run the pairing server")
 
-    pairing_parser.add_argument("--ip", type=str, default="*",
-                                help="The IP to listen (by default *)")
+    pairing_parser.add_argument("--ip", type=str, default="*", help="The IP to listen (by default *)")
     pairing_parser.add_argument("--port", type=int, help="The port to listen (by default random)")
-    pairing_parser.add_argument("--notification-port", type=int, default=DEFAULT_PORT,
-                                help=f"The port which will be used by the notification server (by default {DEFAULT_PORT})")
 
     return argument_parser.parse_args()
 
@@ -179,17 +176,15 @@ class NotificationServer(threading.Thread):
         self.title_format = "{title}" if title_format is None else title_format
         self.body_format = "{body}" if body_format is None else body_format
 
-        self.authenticator: Optional[zmq.auth.thread.ThreadAuthenticator] = None
-
     def run(self) -> None:
         super(NotificationServer, self).run()
 
         with zmq.Context() as context:
-            self.authenticator = zmq.auth.thread.ThreadAuthenticator(context)
+            authenticator = zmq.auth.thread.ThreadAuthenticator(context)
 
-            self.authenticator.start()
+            authenticator.start()
 
-            self.update_client_public_keys()
+            authenticator.configure_curve(domain="*", location=self.clients_directory.as_posix())
 
             with context.socket(zmq.PULL) as server:
                 server.curve_publickey = self.own_public_key
@@ -200,7 +195,7 @@ class NotificationServer(threading.Thread):
                 try:
                     server.bind(f"tcp://{self.ip}:{self.port}")
                 except zmq.error.ZMQError as error:
-                    self.authenticator.stop()
+                    authenticator.stop()
 
                     handle_error(error)
 
@@ -245,31 +240,25 @@ class NotificationServer(threading.Thread):
                     if self.command is not None:
                         subprocess.Popen(replace(self.command), shell=True)
 
-    def update_client_public_keys(self) -> None:
-        if self.authenticator is not None and self.authenticator.is_alive():
-            self.authenticator.configure_curve(domain="*", location=self.clients_directory.as_posix())
-
     def toggle(self) -> None:
         self.enabled = not self.enabled
 
         print()
 
         if self.enabled:
-            print(f"Notification server is enabled")
+            print(f"Notifications enabled")
         else:
-            print(f"Notification server is disabled")
+            print(f"Notifications disabled")
 
 
 class PairingServer(threading.Thread):
-    def __init__(self, clients_directory: Path, own_public_key: bytes, ip: str, port: Optional[int],
-                 notification_port: int):
+    def __init__(self, clients_directory: Path, own_public_key: bytes, ip: str, port: Optional[int]):
         super(PairingServer, self).__init__(daemon=True)
 
         self.clients_directory = clients_directory
         self.own_public_key = own_public_key
         self.ip = ip
         self.port = port
-        self.notification_port = notification_port
 
     def run(self) -> None:
         super(PairingServer, self).run()
@@ -292,7 +281,8 @@ class PairingServer(threading.Thread):
             qr_code.add_data(f"{ip}:{self.port}")
             qr_code.print_ascii()
 
-            print("To pair a new device, open the Android 2 Linux Notifications app and scan this QR code or enter the following:")
+            print("To pair a new device, open the Android 2 Linux Notifications app and scan this QR code or enter "
+                  "the following:")
             print(f"IP: {BOLD}{ip}{RESET}")
             print(f"Port: {BOLD}{self.port}{RESET}")
             print()
@@ -329,6 +319,6 @@ class PairingServer(threading.Thread):
                                       "curve\n"
                                       f"    public-key = \"{client_public_key}\"\n")
 
-                server.send_multipart([str(self.notification_port).encode("utf-8"), self.own_public_key])
+                server.send(self.own_public_key)
 
                 print("Pairing finished.")
