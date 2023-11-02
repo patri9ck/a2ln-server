@@ -82,8 +82,6 @@ def main() -> None:
 
         exit(1)
 
-    server = None
-
     if args.command == "pair":
         server = PairingServer(clients_directory, own_public_key, args.ip, args.port)
     elif own_secret_key:
@@ -94,14 +92,17 @@ def main() -> None:
     else:
         print(f"Own keys file at {own_keys_file} is missing the private key.")
 
-    if server is not None:
-        try:
-            server.start()
+        exit(1)
 
-            while server.is_alive():
-                time.sleep(1)
-        except KeyboardInterrupt:
-            print("\r", end="")
+    try:
+        server.start()
+
+        while server.is_alive():
+            time.sleep(1)
+
+        exit(1)
+    except KeyboardInterrupt:
+        print("\r", end="")
 
 
 def parse_args() -> Namespace:
