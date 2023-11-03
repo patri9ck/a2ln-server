@@ -15,3 +15,5 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from .a2ln import main
+
+__all__ = ("main",)
