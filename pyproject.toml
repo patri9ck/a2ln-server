@@ -5,15 +5,13 @@ description = "A way to display Android phone notifications on Linux"
 readme = "pypi.md"
 requires-python = ">=3.8"
 license = { file = "COPYING" }
-authors = [
-    { name = "patri9ck", email = "patri9ck@gmail.com" },
-]
+authors = [{ name = "patri9ck", email = "patri9ck@gmail.com" }]
 classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Programming Language :: Python",
     "Operating System :: POSIX :: Linux",
     "Topic :: Desktop Environment",
-    "Topic :: Utilities"
+    "Topic :: Utilities",
 ]
 dynamic = ["dependencies"]
 
@@ -31,3 +29,69 @@ build-backend = "setuptools.build_meta"
 
 [project.scripts]
 a2ln = "a2ln:main"
+
+####################
+#  Configurations  #
+####################
+
+[tool.bandit]
+exclude_dirs = [
+    ".github",
+    ".pytest_cache",
+    ".tox",
+    ".venv",
+    ".venv.dev",
+    ".vscode",
+    "site",
+    "tests",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311", "py312"]
+
+[tool.pyright]
+extraPaths = ["src"]
+exclude = [
+    "**/__pycache__/",
+    ".pytest_cache/",
+    ".tox/",
+    ".venv/",
+    ".venv.dev/",
+    "site/",
+]
+pythonVersion = "3.8"
+pythonPlatform = "All"
+typeCheckingMode = "strict"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
+[tool.ruff]
+select = [
+    # Pyflakes
+    "F",
+    # pycodestyle
+    "W",
+    "E",
+    # isort
+    "I",
+    # pep8-naming
+    "N",
+    # pydocstyle
+    "D",
+]
+line-length = 100
+target-version = "py38"
+extend-exclude = ["**/__pycache__", ".pytest_cache", "site"]
+
+[tool.ruff.isort]
+# case-sensitive = true
+combine-as-imports = true
+force-sort-within-sections = true
+force-wrap-aliases = true
+known-local-folder = ["src"]
+relative-imports-order = "closest-to-furthest"
+
+[tool.ruff.pydocstyle]
+convention = "google"
