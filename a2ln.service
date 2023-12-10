@@ -2,7 +2,7 @@
 Description=Android 2 Linux Notifications Server
 
 [Service]
-ExecStart=/usr/bin/a2ln --no-pairing-server
+ExecStart=/usr/bin/a2ln
 
 [Install]
 WantedBy=default.target
