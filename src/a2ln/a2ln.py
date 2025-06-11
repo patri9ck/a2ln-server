@@ -88,7 +88,7 @@ def main() -> None:
         server = PairingServer(clients_directory, own_public_key, args.ip, args.port)
     elif own_secret_key:
         server = NotificationServer(clients_directory, own_public_key, own_secret_key, args.ip, args.port,
-                                    args.title_format, args.body_format, args.command)
+                                    args.title_format, args.body_format, args.command, args.disable)
 
         signal.signal(signal.SIGUSR1, lambda number, frame: server.toggle())
     else:
@@ -114,12 +114,15 @@ def parse_args() -> Namespace:
     argument_parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"The port to listen)")
     argument_parser.add_argument("--title-format", type=str, default="{title}", help="The format of the title. "
                                                                                      "Available placeholders: {app}, "
-                                                                                     "{title}, {body}")
+                                                                                     "{title}, {body}, {package}")
     argument_parser.add_argument("--body-format", type=str, default="{body}", help="The format of the body. Available "
                                                                                    "placeholders: {app}, {title}, "
-                                                                                   "{body}")
+                                                                                   "{body}, {package}")
     argument_parser.add_argument("--command", type=str, help="A shell command to run whenever a notification arrives. "
-                                                             "Available placeholders: {app}, {title}, {body}")
+                                                             "Available placeholders: {app}, {title}, {body}, {package}")
+
+    argument_parser.add_argument("--disable", action="store_true",
+                                 help="Disables the display of notifications initially. This can be toggled during runtime using a SIGUSR1 signal.")
 
     sub_parser = argument_parser.add_subparsers(title="commands", dest="command")
 
@@ -162,7 +165,7 @@ def handle_error(error: zmq.error.ZMQError) -> None:
 
 class NotificationServer(threading.Thread):
     def __init__(self, clients_directory: Path, own_public_key: bytes, own_secret_key: bytes, ip: str,
-                 port: int, title_format: str, body_format: str, command: Optional[str]):
+                 port: int, title_format: str, body_format: str, command: Optional[str], disabled: bool):
         super(NotificationServer, self).__init__(daemon=True)
 
         self.clients_directory = clients_directory
@@ -173,8 +176,7 @@ class NotificationServer(threading.Thread):
         self.title_format = title_format
         self.body_format = body_format
         self.command = command
-
-        self.enabled = True
+        self.disabled = disabled
 
     def run(self) -> None:
         super(NotificationServer, self).run()
@@ -201,7 +203,8 @@ class NotificationServer(threading.Thread):
 
                     return
 
-                print(f"Notification server running on IP {BOLD}{self.ip}{RESET} and port {BOLD}{self.port}{RESET}.")
+                print(
+                    f"Notification server running on IP {BOLD}{self.ip}{RESET} and port {BOLD}{self.port}{RESET} with notifications {BOLD}{"disabled" if self.disabled else "enabled"}{RESET}.")
 
                 Notify.init("Android 2 Linux Notifications")
 
@@ -210,45 +213,46 @@ class NotificationServer(threading.Thread):
 
                     length = len(request)
 
-                    if length != 3 and length != 4:
+                    if length != 4 and length != 5:
                         continue
 
-                    if length == 4:
+                    if length == 5:
                         picture_file = tempfile.NamedTemporaryFile(suffix=".png")
 
-                        Image.open(io.BytesIO(request[3])).save(picture_file.name)
+                        Image.open(io.BytesIO(request[4])).save(picture_file.name)
                     else:
                         picture_file = None
 
                     app = request[0].decode("utf-8")
                     title = request[1].decode("utf-8")
                     body = request[2].decode("utf-8")
+                    package = request[3].decode("utf-8")
 
                     print()
-                    print(f"Received notification (Title: {BOLD}{title}{RESET}, Body: {BOLD}{body}{RESET})")
-
-                    if not self.enabled:
-                        continue
+                    print(
+                        f"Received notification (App: {BOLD}{app}{RESET}, Title: {BOLD}{title}{RESET}, Body: {BOLD}{body}{RESET}, Package: {BOLD}{package}{RESET})")
 
                     def replace(text: str) -> str:
-                        return text.replace("{app}", app).replace("{title}", title).replace("{body}", body)
+                        return text.replace("{app}", app).replace("{title}", title).replace("{body}", body).replace(
+                            "{package}", package)
 
-                    threading.Thread(target=send_notification,
-                                     args=(replace(self.title_format), replace(self.body_format), picture_file),
-                                     daemon=True).start()
+                    if not self.disabled:
+                        threading.Thread(target=send_notification,
+                                         args=(replace(self.title_format), replace(self.body_format), picture_file),
+                                         daemon=True).start()
 
                     if self.command is not None:
                         subprocess.Popen(replace(self.command), shell=True)
 
     def toggle(self) -> None:
-        self.enabled = not self.enabled
+        self.disabled = not self.disabled
 
         print()
 
-        if self.enabled:
-            print(f"Notifications enabled.")
+        if self.disabled:
+            print(f"Notifications {BOLD}disabled{RESET}.")
         else:
-            print(f"Notifications disabled.")
+            print(f"Notifications {BOLD}enabled{RESET}.")
 
 
 class PairingServer(threading.Thread):
