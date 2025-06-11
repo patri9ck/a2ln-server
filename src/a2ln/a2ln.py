@@ -88,7 +88,7 @@ def main() -> None:
         server = PairingServer(clients_directory, own_public_key, args.ip, args.port)
     elif own_secret_key:
         server = NotificationServer(clients_directory, own_public_key, own_secret_key, args.ip, args.port,
-                                    args.title_format, args.body_format, args.command)
+                                    args.title_format, args.body_format, args.command, args.command_only)
 
         signal.signal(signal.SIGUSR1, lambda number, frame: server.toggle())
     else:
@@ -114,12 +114,14 @@ def parse_args() -> Namespace:
     argument_parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"The port to listen)")
     argument_parser.add_argument("--title-format", type=str, default="{title}", help="The format of the title. "
                                                                                      "Available placeholders: {app}, "
-                                                                                     "{title}, {body}")
+                                                                                     "{title}, {body}, {package}")
     argument_parser.add_argument("--body-format", type=str, default="{body}", help="The format of the body. Available "
                                                                                    "placeholders: {app}, {title}, "
-                                                                                   "{body}")
+                                                                                   "{body}, {package}")
     argument_parser.add_argument("--command", type=str, help="A shell command to run whenever a notification arrives. "
-                                                             "Available placeholders: {app}, {title}, {body}")
+                                                             "Available placeholders: {app}, {title}, {body}, {package}")
+
+    argument_parser.add_argument("--command-only", action="store_true", help="Only execute the --command, do not send notification.")
 
     sub_parser = argument_parser.add_subparsers(title="commands", dest="command")
 
@@ -162,7 +164,7 @@ def handle_error(error: zmq.error.ZMQError) -> None:
 
 class NotificationServer(threading.Thread):
     def __init__(self, clients_directory: Path, own_public_key: bytes, own_secret_key: bytes, ip: str,
-                 port: int, title_format: str, body_format: str, command: Optional[str]):
+                 port: int, title_format: str, body_format: str, command: Optional[str], command_only: bool):
         super(NotificationServer, self).__init__(daemon=True)
 
         self.clients_directory = clients_directory
@@ -173,6 +175,7 @@ class NotificationServer(threading.Thread):
         self.title_format = title_format
         self.body_format = body_format
         self.command = command
+        self.command_only = command_only
 
         self.enabled = True
 
@@ -210,32 +213,34 @@ class NotificationServer(threading.Thread):
 
                     length = len(request)
 
-                    if length != 3 and length != 4:
+                    if length != 4 and length != 5:
                         continue
 
-                    if length == 4:
+                    if length == 5:
                         picture_file = tempfile.NamedTemporaryFile(suffix=".png")
 
-                        Image.open(io.BytesIO(request[3])).save(picture_file.name)
+                        Image.open(io.BytesIO(request[4])).save(picture_file.name)
                     else:
                         picture_file = None
 
                     app = request[0].decode("utf-8")
                     title = request[1].decode("utf-8")
                     body = request[2].decode("utf-8")
+                    package = request[3].decode("utf-8")
 
                     print()
-                    print(f"Received notification (Title: {BOLD}{title}{RESET}, Body: {BOLD}{body}{RESET})")
+                    print(f"Received notification (Title: {BOLD}{title}{RESET}, Body: {BOLD}{body}{RESET}, Package: {BOLD}{package}{RESET})")
 
                     if not self.enabled:
                         continue
 
                     def replace(text: str) -> str:
-                        return text.replace("{app}", app).replace("{title}", title).replace("{body}", body)
+                        return text.replace("{app}", app).replace("{title}", title).replace("{body}", body).replace("{package}", package)
 
-                    threading.Thread(target=send_notification,
-                                     args=(replace(self.title_format), replace(self.body_format), picture_file),
-                                     daemon=True).start()
+                    if not self.command_only:
+                        threading.Thread(target=send_notification,
+                                         args=(replace(self.title_format), replace(self.body_format), picture_file),
+                                         daemon=True).start()
 
                     if self.command is not None:
                         subprocess.Popen(replace(self.command), shell=True)
