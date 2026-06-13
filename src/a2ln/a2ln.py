@@ -88,7 +88,7 @@ def main() -> None:
         server = NotificationServer(clients_directory, own_public_key, own_secret_key, args.ip, args.port,
                                     args.title_format, args.body_format, args.command)
 
-        signal.signal(signal.SIGUSR1, lambda *_: server.toggle())
+        signal.signal(signal.SIGUSR1, lambda number, frame: server.toggle())
     else:
         print(f"Own keys file at {own_keys_file} is missing the private key.")
 
