@@ -55,15 +55,6 @@ def main():
 
     main_directory = Path(Path.home(), os.environ.get("XDG_CONFIG_HOME") or ".config", "a2ln")
 
-    old_main_directory = Path(Path.home(), ".a2ln")
-
-    if old_main_directory.exists() and not main_directory.exists():
-        import shutil
-
-        shutil.copytree(old_main_directory, main_directory)
-
-        shutil.rmtree(old_main_directory)
-
     client_public_keys_directory = main_directory / "clients"
     own_keys_directory = main_directory / "server"
 
@@ -89,23 +80,18 @@ def main():
 
     PairServer(client_public_keys_directory, own_public_key, args.pairing_port, notification_server).start()
 
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("\r", end="")
-
-        exit()
+    while True:
+        time.sleep(1)
 
 
 def parse_args() -> Namespace:
     argument_parser = argparse.ArgumentParser(description="A way to display Android phone notifications on Linux")
 
-    argument_parser.add_argument("notification_port", metavar="NOTIFICATION_PORT", type=int,
+    argument_parser.add_argument("notification_port", metavar="NOTIFICATION_PORT", type=int, nargs="?", default=23045,
                                  help="The port to listen for notifications")
     argument_parser.add_argument("--pairing-port", type=int,
                                  help="The port to listen for pairing requests (by default random)")
-    argument_parser.add_argument("--title-format", type=str,
+    argument_parser.add_argument("--title-format", type=str, default="{title}",
                                  help="The format of the title. Available placeholders: {app}, {title}")
     argument_parser.add_argument("--command", type=str,
                                  help="A shell command to run whenever a notification arrives. Available placeholders: {app}, {title}, {body}")
@@ -205,9 +191,8 @@ class NotificationServer(threading.Thread):
                     title = request[1].decode("utf-8")
                     body = request[2].decode("utf-8")
 
-                    threading.Thread(target=send_notification, args=(
-                        title if self.title_format is None else self.title_format.replace("{app}", app).replace(
-                            "{title}", title), body, picture_file), daemon=True).start()
+                    threading.Thread(target=send_notification, args=(self.title_format.replace("{app}", app).replace(
+                        "{title}", title), body, picture_file), daemon=True).start()
 
                     if self.command is not None:
                         subprocess.Popen(
@@ -290,4 +275,9 @@ class PairServer(threading.Thread):
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\r", end="")
+
+        exit()
