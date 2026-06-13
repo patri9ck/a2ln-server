@@ -252,6 +252,8 @@ class NotificationServer(threading.Thread):
     def toggle(self) -> None:
         self.enabled = not self.enabled
 
+        print()
+
         if self.enabled:
             print(f"Notification server is enabled")
         else:
