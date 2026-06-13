@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import socket
 import zmq
 import threading
 import tempfile
@@ -20,18 +21,25 @@ argumentParser = argparse.ArgumentParser(description="Shows Android notification
 
 argumentParser.add_argument("port", metavar="p", type=int, help="The port")
 
-def send_notification(title, body, picture_file = None):
+def send_notification(title, text, picture_file = None):
     if picture_file is None:
-        Notify.Notification.new(title, body, "dialog-information").show()
+        Notify.Notification.new(title, text, "dialog-information").show()
     else:
-        Notify.Notification.new(title, body, picture_file.name).show()
+        Notify.Notification.new(title, text, picture_file.name).show()
 
         picture_file.close()
 
-    print(f"Sent notification (Title: {title}, Body: {body})")
+    print(f"Sent notification (Title: {title}, Text: {text})")
+
+port = argumentParser.parse_args().port
+
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as socket:
+    socket.connect(("8.8.8.8", 80))
+    
+    print(f"Address: {socket.getsockname()[0]}:{port}")
 
 with zmq.Context() as context, context.socket(zmq.PULL) as socket:
-    socket.bind(f"tcp://*:{argumentParser.parse_args().port}")
+    socket.bind(f"tcp://*:{port}")
 
     Notify.init("Android 2 Linux Notifications")
 
@@ -45,16 +53,15 @@ with zmq.Context() as context, context.socket(zmq.PULL) as socket:
             continue
 
         title = notification[0].decode("utf-8")
-        body = notification[1].decode("utf-8")
+        text = notification[1].decode("utf-8")
 
         if len(notification) > 2:
             picture_file = tempfile.NamedTemporaryFile(suffix=".png")
 
             Image.open(io.BytesIO(notification[2])).save(picture_file.name)
 
-            args = (title, body, picture_file)
+            args = (title, text, picture_file)
         else:
-            args = (title, body)
+            args = (title, text)
 
         threading.Thread(target=send_notification, args=args).start()
-
