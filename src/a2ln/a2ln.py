@@ -45,7 +45,7 @@ BOLD = "\033[1m"
 RESET = "\033[0m"
 
 
-def main():
+def main() -> None:
     args = parse_args()
 
     if args.command == "version":
@@ -85,12 +85,10 @@ def main():
     server = None
 
     if args.command == "pair":
-        server = PairingServer(clients_directory, own_public_key, args.ip,
-                               args.port)
+        server = PairingServer(clients_directory, own_public_key, args.ip, args.port)
     elif own_secret_key:
-        server = NotificationServer(clients_directory, own_public_key, own_secret_key,
-                                    args.ip, args.port, args.command,
-                                    args.title_format, args.body_format)
+        server = NotificationServer(clients_directory, own_public_key, own_secret_key, args.ip, args.port,
+                                    args.title_format, args.body_format, args.command)
 
         signal.signal(signal.SIGUSR1, lambda *_: server.toggle())
     else:
@@ -109,27 +107,25 @@ def main():
 def parse_args() -> Namespace:
     argument_parser = argparse.ArgumentParser(description="A way to display Android phone notifications on Linux")
 
-    argument_parser.add_argument("--ip", type=str, default="*", help="The IP to listen (by default *)")
-    argument_parser.add_argument("--port", type=int, default=23045,help=f"The port to listen (by default 23045))")
-    argument_parser.add_argument("--title-format", type=str, default="{title}",help="The format of the title. "
-                                                                                    "Available placeholders: {app}, "
-                                                                                    "{title}, {body} (by default {"
-                                                                                    "title})")
+    argument_parser.add_argument("--ip", type=str, default="*", help="The IP to listen")
+    argument_parser.add_argument("--port", type=int, default=23045, help=f"The port to listen)")
+    argument_parser.add_argument("--title-format", type=str, default="{title}", help="The format of the title. "
+                                                                                     "Available placeholders: {app}, "
+                                                                                     "{title}, {body}")
     argument_parser.add_argument("--body-format", type=str, default="{body}", help="The format of the body. Available "
                                                                                    "placeholders: {app}, {title}, "
-                                                                                   "{body} (by default {body})")
+                                                                                   "{body}")
     argument_parser.add_argument("--command", type=str, help="A shell command to run whenever a notification arrives. "
-                                                             "Available placeholders: {app}, {title}, {body} (by "
-                                                             "default none)")
+                                                             "Available placeholders: {app}, {title}, {body}")
 
     sub_parser = argument_parser.add_subparsers(title="commands", dest="command")
 
     sub_parser.add_parser("version", help="Show the version and exit")
 
-    pairing_parser = sub_parser.add_parser("pair", help="Run the pairing server")
+    pair_parser = sub_parser.add_parser("pair", help="Run the pairing server")
 
-    pairing_parser.add_argument("--ip", type=str, default="*", help="The IP to listen (by default *)")
-    pairing_parser.add_argument("--port", type=int, help="The port to listen (by default random)")
+    pair_parser.add_argument("--ip", type=str, default="*", help="The IP to listen")
+    pair_parser.add_argument("--port", type=int, help="The port to listen, random by default")
 
     return argument_parser.parse_args()
 
@@ -152,18 +148,18 @@ def send_notification(title: str, body: str, picture_file=None) -> None:
 
 def handle_error(error: zmq.error.ZMQError) -> None:
     if error.errno == zmq.EADDRINUSE:
-        print("Port already used")
+        print("Port is already used.")
     elif error.errno == 13:
-        print("No permission (note that you must use a port higher than 1023 if you are not root)")
+        print("Permission is missing (note that you must use a port higher than 1023 if you are not root).")
     elif error.errno == 19:
-        print("Invalid IP")
+        print("IP is invalid.")
     else:
         traceback.print_exc()
 
 
 class NotificationServer(threading.Thread):
     def __init__(self, clients_directory: Path, own_public_key: bytes, own_secret_key: bytes, ip: str,
-                 port: int, command: Optional[str], title_format: Optional[str], body_format: Optional[str]):
+                 port: int, title_format: str, body_format: str, command: Optional[str]):
         super(NotificationServer, self).__init__(daemon=True)
 
         self.clients_directory = clients_directory
@@ -171,10 +167,11 @@ class NotificationServer(threading.Thread):
         self.own_secret_key = own_secret_key
         self.ip = ip
         self.port = port
+        self.title_format = title_format
+        self.body_format = body_format
         self.command = command
+
         self.enabled = True
-        self.title_format = "{title}" if title_format is None else title_format
-        self.body_format = "{body}" if body_format is None else body_format
 
     def run(self) -> None:
         super(NotificationServer, self).run()
@@ -246,9 +243,9 @@ class NotificationServer(threading.Thread):
         print()
 
         if self.enabled:
-            print(f"Notifications enabled")
+            print(f"Notifications enabled.")
         else:
-            print(f"Notifications disabled")
+            print(f"Notifications disabled.")
 
 
 class PairingServer(threading.Thread):
@@ -281,8 +278,9 @@ class PairingServer(threading.Thread):
             qr_code.add_data(f"{ip}:{self.port}")
             qr_code.print_ascii()
 
-            print("To pair a new device, open the Android 2 Linux Notifications app and scan this QR code or enter "
-                  "the following:")
+            print(f"Pairing server running on IP {BOLD}{self.ip}{RESET} and port {BOLD}{self.port}{RESET}. To pair a "
+                  f"new device, open the Android 2 Linux Notifications app and scan this QR code or enter the "
+                  f"following:")
             print(f"IP: {BOLD}{ip}{RESET}")
             print(f"Port: {BOLD}{self.port}{RESET}")
             print()
@@ -309,7 +307,7 @@ class PairingServer(threading.Thread):
                 if input("Accept? (Yes/No): ").lower() != "yes":
                     print("Pairing cancelled.")
 
-                    server.send_multipart([b""])
+                    server.send(b"")
 
                     continue
 
