@@ -24,4 +24,4 @@ else
 endif
 
 clean:
-	@rm -rf build src/$(BIN).egg-info
+	@rm -rf build dist src/$(BIN).egg-info
