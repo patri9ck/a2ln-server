@@ -1,21 +1,32 @@
 # Android 2 Linux Notifications Server
-This is the server part of **Android 2 Linux Notifications**. It consists of a simple Python script.
+**Android 2 Linux Notification** (**A2LN**) allows you to show your Android notifications on your Linux desktops.
+
+This is the server part of A2LN. It consists of a simple Python script.
 ## Installation
 The recommended way to install A2LN is through your package manager.
 Distribution | Maintainer
 ------------ | ----------
-[Arch Linux / Manjaro](https://aur.archlinux.org/packages/a2ln/) | patri9ck
-### Manual Installation
-Alternatively, you can clone this repository and place the `a2ln` Python script somewhere into your `PATH` variable:
+[Arch Linux / Manjaro (AUR)](https://aur.archlinux.org/packages/a2ln/) | patri9ck
+### Manually
+Alternatively, you can clone this repository and install/uninstall A2LN manually.
 ```
 $ git clone https://github.com/patri9ck/a2ln-server.git
-# install -Dm755 a2ln-server/a2ln /usr/local/bin/a2ln
+$ cd a2ln-server
 ```
 Runtime dependencies:
 - Python 3
+- Pillow
 - PyGObject
 - PyZMQ
 - setproctitle
+#### Installation
+```
+# make install
+```
+#### Uninstallation
+```
+# make uninstall
+```
 ## Usage
 After the installation, simply run A2LN like this:
 ```
