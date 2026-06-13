@@ -2,6 +2,9 @@
 This is the server part of **Android 2 Linux Notifications**. It consists of a simple Python script.
 ## Installation
 The recommended way to install A2LN is through your package manager.
+Distribution | Maintainer
+------------ | ----------
+[Arch Linux / Manjaro](https://aur.archlinux.org/packages/a2ln/) | patri9ck
 ### Manual Installation
 Alternatively, you can clone this repository and place the `a2ln` Python script somewhere into your `PATH` variable:
 ```
