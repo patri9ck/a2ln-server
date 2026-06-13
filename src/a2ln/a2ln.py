@@ -1,3 +1,4 @@
+#  Android 2 Linux Notifications - A way to display Android phone notifications on Linux
 #  Copyright (C) 2023  Patrick Zwick and contributors
 #
 #  This program is free software: you can redistribute it and/or modify
@@ -16,6 +17,7 @@
 import argparse
 import io
 import os
+import signal
 import socket
 import subprocess
 import tempfile
@@ -27,8 +29,7 @@ from pathlib import Path
 from typing import Optional
 
 import gi
-import qrcode
-import setproctitle
+import qrcode  # type: ignore
 import zmq
 import zmq.auth
 import zmq.auth.thread
@@ -37,7 +38,7 @@ from PIL import Image
 
 gi.require_version('Notify', '0.7')
 
-from gi.repository import Notify
+from gi.repository import Notify  # type: ignore # noqa: E402
 
 BOLD = "\033[1m"
 GREEN = "\033[0;32m"
@@ -51,39 +52,52 @@ RED_PREFIX = f"{RED}{PREFIX}{RESET}"
 
 def main():
     try:
-        setproctitle.setproctitle("a2ln")
-
         main_directory = Path(Path.home(), os.environ.get("XDG_CONFIG_HOME") or ".config", "a2ln")
 
         clients_directory = main_directory / "clients"
-        server_directory = main_directory / "server"
+        own_directory = main_directory / "server"
 
         main_directory.mkdir(exist_ok=True)
 
         clients_directory.mkdir(exist_ok=True)
 
-        if not server_directory.exists():
-            server_directory.mkdir()
+        if not own_directory.exists():
+            own_directory.mkdir()
 
-            zmq.auth.create_certificates(server_directory, "server")
+            zmq.auth.create_certificates(own_directory, "server")
+
+        own_keys_file = own_directory / "server.key_secret"
+
+        try:
+            own_public_key, own_secret_key = zmq.auth.load_certificate(own_keys_file)
+        except OSError:
+            print(f"{RED_PREFIX}Own keys file at {own_keys_file} does not exist.")
+
+            exit(1)
+        except ValueError:
+            print(f"{RED_PREFIX}Own keys file at {own_keys_file} is missing the public key.")
+
+            exit(1)
 
         args = parse_args()
-
-        own_public_key, own_secret_key = zmq.auth.load_certificate(server_directory / "server.key_secret")
 
         notification_server, pairing_server = None, None
 
         if not args.no_notification_server:
-            notification_server = NotificationServer(clients_directory, own_public_key, own_secret_key,
-                                                     args.notification_ip, args.notification_port, args.command,
-                                                     args.title_format, args.body_format)
+            if own_secret_key:
+                notification_server = NotificationServer(clients_directory, own_public_key, own_secret_key,
+                                                         args.notification_ip, args.notification_port, args.command,
+                                                         args.title_format, args.body_format)
 
-            notification_server.start()
+                notification_server.start()
+
+                signal.signal(signal.SIGUSR1, lambda *_: notification_server.toggle())
+            else:
+                inform("notification", error_text=f"Own keys file at {own_keys_file} is missing the private key.")
+
+        time.sleep(1)
 
         if not args.no_pairing_server:
-            if notification_server is not None and notification_server.is_alive():
-                time.sleep(1)
-
             pairing_server = PairingServer(clients_directory, own_public_key, args.pairing_ip,
                                            args.pairing_port, args.notification_port, notification_server)
 
@@ -129,20 +143,18 @@ def get_ip() -> str:
         return client.getsockname()[0]
 
 
-def send_notification(title: str, text: str, picture_file: Optional[tempfile._TemporaryFileWrapper] = None) -> None:
+def send_notification(title: str, body: str, picture_file=None) -> None:
     if picture_file is None:
-        Notify.Notification.new(title, text, "dialog-information").show()
+        Notify.Notification.new(title, body, "dialog-information").show()
     else:
-        Notify.Notification.new(title, text, picture_file.name).show()
+        Notify.Notification.new(title, body, picture_file.name).show()
 
         picture_file.close()
 
-    print(f"{GREEN_PREFIX}Sent notification (Title: {BOLD}{title}{RESET}, Text: {BOLD}{text}{RESET})")
-
 
 def inform(name: str, ip: Optional[str] = None, port: Optional[int] = None,
-           error: Optional[zmq.error.ZMQError] = None) -> None:
-    if error is None:
+           error: Optional[zmq.error.ZMQError] = None, error_text: Optional[str] = None) -> None:
+    if error is None and error_text is None:
         print(
             f"{GREEN_PREFIX}{name.capitalize()} server running on IP {BOLD}{ip}{RESET} and port {BOLD}{port}{RESET}.")
 
@@ -150,11 +162,13 @@ def inform(name: str, ip: Optional[str] = None, port: Optional[int] = None,
 
     print(f"{RED_PREFIX}Cannot start {name.lower()} server:", end=" ")
 
-    if error.errno == zmq.EADDRINUSE:
+    if error_text is not None:
+        print(error_text)
+    elif error.errno == zmq.EADDRINUSE:  # type: ignore
         print("Port already used")
-    elif error.errno == 13:
+    elif error.errno == 13:  # type: ignore
         print("No permission (note that you must use a port higher than 1023 if you are not root)")
-    elif error.errno == 19:
+    elif error.errno == 19:  # type: ignore
         print("Invalid IP")
     else:
         traceback.print_exc()
@@ -171,6 +185,7 @@ class NotificationServer(threading.Thread):
         self.ip = ip
         self.port = port
         self.command = command
+        self.enabled = True
         self.title_format = "{title}" if title_format is None else title_format
         self.body_format = "{body}" if body_format is None else body_format
 
@@ -203,9 +218,6 @@ class NotificationServer(threading.Thread):
 
                 inform("notification", ip=self.ip, port=self.port)
 
-                print(
-                    "Do not forget to autostart the notification server. More information can be found at https://patri9ck.dev/a2ln/server.html#autostarting.")
-
                 Notify.init("Android 2 Linux Notifications")
 
                 while True:
@@ -227,6 +239,12 @@ class NotificationServer(threading.Thread):
                     title = request[1].decode("utf-8")
                     body = request[2].decode("utf-8")
 
+                    print(
+                        f"{GREEN_PREFIX}Received notification (Title: {BOLD}{title}{RESET}, Body: {BOLD}{body}{RESET})")
+
+                    if not self.enabled:
+                        continue
+
                     def replace(text: str) -> str:
                         return text.replace("{app}", app).replace("{title}", title).replace("{body}", body)
 
@@ -235,11 +253,19 @@ class NotificationServer(threading.Thread):
                                      daemon=True).start()
 
                     if self.command is not None:
-                        subprocess.Popen(replace(self.command), shell=True)
+                        subprocess.Popen(replace(self.command), shell=False)
 
     def update_client_public_keys(self) -> None:
         if self.authenticator is not None and self.authenticator.is_alive():
             self.authenticator.configure_curve(domain="*", location=self.clients_directory.as_posix())
+
+    def toggle(self) -> None:
+        self.enabled = not self.enabled
+
+        if self.enabled:
+            print(f"{GREEN_PREFIX}Notification server is enabled")
+        else:
+            print(f"{GREEN_PREFIX}Notification server is disabled")
 
 
 class PairingServer(threading.Thread):
@@ -306,8 +332,8 @@ class PairingServer(threading.Thread):
                 with open((self.clients_directory / client_ip).as_posix() + ".key", "w",
                           encoding="utf-8") as client_file:
                     client_file.write("metadata\n"
-                                          "curve\n"
-                                          f"    public-key = \"{client_public_key}\"\n")
+                                      "curve\n"
+                                      f"    public-key = \"{client_public_key}\"\n")
 
                 server.send_multipart([str(self.notification_port).encode("utf-8"), self.own_public_key])
 
