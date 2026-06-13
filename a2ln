@@ -5,15 +5,16 @@ import io
 import socket
 import tempfile
 import threading
-import setproctitle
-import gi
 import time
+import traceback
+from pathlib import Path
+
+import gi
+import qrcode
+import setproctitle
 import zmq
 import zmq.auth
 import zmq.auth.thread
-import zmq.error
-
-from pathlib import Path
 from PIL import Image
 
 gi.require_version('Notify', '0.7')
@@ -22,11 +23,12 @@ from gi.repository import Notify
 
 BOLD = "\033[1m"
 GREEN = "\033[0;32m"
+RED = "\033[0;31m"
 RESET = "\033[0m"
 
-PREFIX = f"{GREEN}==>{RESET} "
-
-print_lock = threading.Lock()
+PREFIX = "==> "
+GREEN_PREFIX = f"{GREEN}{PREFIX}{RESET}"
+RED_PREFIX = f"{RED}{PREFIX}{RESET}"
 
 
 def start():
@@ -46,43 +48,33 @@ def start():
 
         zmq.auth.create_certificates(server_keys_directory, "server")
 
-    server_notification_port = parse_args().port
+    args = parse_args()
 
     server_public_key, server_secret_key = zmq.auth.load_certificate(server_keys_directory / "server.key_secret")
 
-    print_synchronized(f"{PREFIX}Your IP: {BOLD}{get_ip()}{RESET}")
-    print_synchronized(f"{PREFIX}Your public key: {BOLD}{server_public_key.decode('utf-8')}{RESET}")
-
-    notification_server = NotificationServer(client_public_keys_directory,
-                                             server_public_key,
-                                             server_secret_key,
-                                             server_notification_port)
-
-    pair_server = PairServer(client_public_keys_directory,
-                             server_public_key,
-                             notification_server)
-
-    for server in [notification_server, pair_server]:
-        server.start()
+    NotificationServer(client_public_keys_directory,
+                       server_public_key,
+                       server_secret_key,
+                       args.notification_port,
+                       args.pairing_port).start()
 
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        print_synchronized("\r", end="")
+        print("\r", end="")
 
         exit()
-
-
-def print_synchronized(*messages, end="\n"):
-    with print_lock:
-        print(*messages, sep="\n", end=end)
 
 
 def parse_args():
     argument_parser = argparse.ArgumentParser(description="A way to display Android phone notifications on Linux")
 
-    argument_parser.add_argument("port", metavar="p", type=int, help="The port")
+    argument_parser.add_argument("notification_port", metavar="NOTIFICATION-PORT", type=int, help="The port to listen "
+                                                                                                  "for notifications")
+    argument_parser.add_argument("--pairing-port", metavar="PAIRING-PORT", type=int, help="The port to listen for "
+                                                                                          "pairing requests (by "
+                                                                                          "default random)")
 
     return argument_parser.parse_args()
 
@@ -102,7 +94,22 @@ def send_notification(title, text, picture_file=None):
 
         picture_file.close()
 
-    print_synchronized(f"\nSent notification (Title: {BOLD}{title}{RESET}, Text: {BOLD}{text}{RESET})")
+    print(f"\n{GREEN_PREFIX}Sent notification (Title: {BOLD}{title}{RESET}, Text: {BOLD}{text}{RESET})")
+
+
+def handle_exception(name, exception):
+    match str(exception):
+        case "Address already in use":
+            print(f"{RED_PREFIX}Cannot start {name} server: Port already used")
+        case "Permission denied":
+            print(f"{RED_PREFIX}Cannot start {name} server: No permission (note that you cannot use a port "
+                  "higher than 1023 if you are not root)")
+        case _:
+            print(f"{RED_PREFIX}Cannot start {name} server:")
+
+            traceback.print_exc()
+
+    return
 
 
 class NotificationServer(threading.Thread):
@@ -110,13 +117,15 @@ class NotificationServer(threading.Thread):
                  client_public_keys_directory,
                  server_public_key,
                  server_secret_key,
-                 server_notification_port):
+                 notification_port,
+                 pairing_port):
         super().__init__(daemon=True)
 
         self.client_public_keys_directory = client_public_keys_directory
         self.server_public_key = server_public_key
         self.server_secret_key = server_secret_key
-        self.server_notification_port = server_notification_port
+        self.notification_port = notification_port
+        self.pairing_port = pairing_port
         self.authenticator = None
 
     def run(self) -> None:
@@ -136,20 +145,18 @@ class NotificationServer(threading.Thread):
                 server.curve_server = True
 
                 try:
-                    server.bind(f"tcp://*:{self.server_notification_port}")
-                except zmq.error.ZMQError as error:
+                    server.bind(f"tcp://*:{self.notification_port}")
+
+                    print(f"{GREEN_PREFIX}Notification server running on port {BOLD}{self.notification_port}{RESET}")
+                except Exception as exception:
                     self.authenticator.stop()
 
-                    if str(error) == "Address already in use":
-                        print_synchronized("\nCannot start notification server: Port already used")
+                    handle_exception("notification", exception)
 
-                        return
-
-                    print_synchronized("\nCannot start notification server:")
-
-                    raise
-
-                print_synchronized(f"\nNotification server running on port {BOLD}{self.server_notification_port}{RESET}")
+                    return
+                finally:
+                    PairServer(self.client_public_keys_directory, self.server_public_key, self.pairing_port,
+                               self).start()
 
                 Notify.init("Android 2 Linux Notifications")
 
@@ -181,20 +188,42 @@ class PairServer(threading.Thread):
     def __init__(self,
                  client_public_keys_directory,
                  server_public_key,
+                 pairing_port,
                  notification_server):
         super(PairServer, self).__init__(daemon=True)
 
         self.client_public_keys_directory = client_public_keys_directory
         self.server_public_key = server_public_key
+        self.pairing_port = pairing_port
         self.notification_server = notification_server
 
     def run(self):
         super(PairServer, self).run()
 
         with zmq.Context() as context, context.socket(zmq.REP) as server:
-            server_pairing_port = server.bind_to_random_port("tcp://*")
+            if self.pairing_port is None:
+                self.pairing_port = server.bind_to_random_port("tcp://*")
+            else:
+                try:
+                    server.bind(f"tcp://*:{self.pairing_port}")
+                except Exception as exception:
+                    handle_exception("pairing", exception)
 
-            print_synchronized(f"\nPairing server running on port {BOLD}{server_pairing_port}{RESET}.")
+                    return
+
+            ip = get_ip()
+
+            qr_code = qrcode.QRCode()
+
+            qr_code.add_data(f"{ip}:{self.pairing_port}")
+            qr_code.print_ascii()
+
+            print(
+                f"{GREEN_PREFIX}To pair a new device, open the Android 2 Linux Notifications app and scan this QR "
+                "code or enter the following:")
+            print(f"IP: {BOLD}{ip}{RESET}")
+            print(f"Port: {BOLD}{self.pairing_port}{RESET}")
+            print(f"\n{GREEN_PREFIX}Public Key: {BOLD}{self.server_public_key.decode('utf-8')}{RESET}")
 
             while True:
                 request = server.recv_multipart()
@@ -205,12 +234,12 @@ class PairServer(threading.Thread):
                 client_ip = request[0].decode("utf-8")
                 client_public_key = request[1].decode("utf-8")
 
-                print_synchronized(f"\n{PREFIX}New pairing request",
-                                   f"\nClient IP: {BOLD}{client_ip}{RESET}",
-                                   f"Client public key: {BOLD}{client_public_key}{RESET}")
+                print(f"\n{GREEN_PREFIX}New pairing request")
+                print(f"IP: {BOLD}{client_ip}{RESET}")
+                print(f"Public Key: {BOLD}{client_public_key}{RESET}")
 
                 if input("\nAccept? (Yes/No): ").lower() != "yes":
-                    print_synchronized("Pairing cancelled.")
+                    print("Pairing cancelled.")
 
                     server.send_multipart([b""])
 
@@ -222,12 +251,12 @@ class PairServer(threading.Thread):
                                           "curve\n"
                                           f"    public-key = \"{client_public_key}\"\n")
 
-                server.send_multipart([str(self.notification_server.server_notification_port).encode("utf-8"),
+                server.send_multipart([str(self.notification_server.notification_port).encode("utf-8"),
                                        self.server_public_key])
 
                 self.notification_server.update_client_public_keys()
 
-                print_synchronized("Pairing finished.")
+                print("Pairing finished.")
 
 
 start()
