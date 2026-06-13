@@ -55,26 +55,26 @@ def main():
 
         main_directory = Path(Path.home(), os.environ.get("XDG_CONFIG_HOME") or ".config", "a2ln")
 
-        client_public_keys_directory = main_directory / "clients"
-        own_keys_directory = main_directory / "server"
+        clients_directory = main_directory / "clients"
+        server_directory = main_directory / "server"
 
         main_directory.mkdir(exist_ok=True)
 
-        client_public_keys_directory.mkdir(exist_ok=True)
+        clients_directory.mkdir(exist_ok=True)
 
-        if not own_keys_directory.exists():
-            own_keys_directory.mkdir()
+        if not server_directory.exists():
+            server_directory.mkdir()
 
-            zmq.auth.create_certificates(own_keys_directory, "server")
+            zmq.auth.create_certificates(server_directory, "server")
 
         args = parse_args()
 
-        own_public_key, own_secret_key = zmq.auth.load_certificate(own_keys_directory / "server.key_secret")
+        own_public_key, own_secret_key = zmq.auth.load_certificate(server_directory / "server.key_secret")
 
         notification_server, pairing_server = None, None
 
         if not args.no_notification_server:
-            notification_server = NotificationServer(client_public_keys_directory, own_public_key, own_secret_key,
+            notification_server = NotificationServer(clients_directory, own_public_key, own_secret_key,
                                                      args.notification_ip, args.notification_port, args.command,
                                                      args.title_format, args.body_format)
 
@@ -84,7 +84,7 @@ def main():
             if notification_server is not None and notification_server.is_alive():
                 time.sleep(1)
 
-            pairing_server = PairingServer(client_public_keys_directory, own_public_key, args.pairing_ip,
+            pairing_server = PairingServer(clients_directory, own_public_key, args.pairing_ip,
                                            args.pairing_port, args.notification_port, notification_server)
 
             pairing_server.start()
@@ -161,11 +161,11 @@ def inform(name: str, ip: Optional[str] = None, port: Optional[int] = None,
 
 
 class NotificationServer(threading.Thread):
-    def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, own_secret_key: bytes, ip: str,
+    def __init__(self, clients_directory: Path, own_public_key: bytes, own_secret_key: bytes, ip: str,
                  port: int, command: Optional[str], title_format: Optional[str], body_format: Optional[str]):
         super(NotificationServer, self).__init__(daemon=True)
 
-        self.client_public_keys_directory = client_public_keys_directory
+        self.clients_directory = clients_directory
         self.own_public_key = own_public_key
         self.own_secret_key = own_secret_key
         self.ip = ip
@@ -239,15 +239,15 @@ class NotificationServer(threading.Thread):
 
     def update_client_public_keys(self) -> None:
         if self.authenticator is not None and self.authenticator.is_alive():
-            self.authenticator.configure_curve(domain="*", location=self.client_public_keys_directory.as_posix())
+            self.authenticator.configure_curve(domain="*", location=self.clients_directory.as_posix())
 
 
 class PairingServer(threading.Thread):
-    def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, ip: str, port: Optional[int],
+    def __init__(self, clients_directory: Path, own_public_key: bytes, ip: str, port: Optional[int],
                  notification_port: int, notification_server: Optional[NotificationServer]):
         super(PairingServer, self).__init__(daemon=True)
 
-        self.client_public_keys_directory = client_public_keys_directory
+        self.clients_directory = clients_directory
         self.own_public_key = own_public_key
         self.ip = ip
         self.port = port
@@ -303,9 +303,9 @@ class PairingServer(threading.Thread):
 
                     continue
 
-                with open((self.client_public_keys_directory / client_ip).as_posix() + ".key", "w",
-                          encoding="utf-8") as client_key_file:
-                    client_key_file.write("metadata\n"
+                with open((self.clients_directory / client_ip).as_posix() + ".key", "w",
+                          encoding="utf-8") as client_file:
+                    client_file.write("metadata\n"
                                           "curve\n"
                                           f"    public-key = \"{client_public_key}\"\n")
 
