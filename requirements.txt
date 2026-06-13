@@ -1,5 +1,5 @@
-Pillow >= 9.2.0
-pygobject >=3.42.2
+Pillow >= 9.0.1
+pygobject >=3.42.1
 pyzmq >= 24.0.0
-setproctitle >= 1.3.2
+setproctitle >= 1.2.2
 qrcode >= 7.3.1
