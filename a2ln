@@ -2,7 +2,6 @@
 
 import argparse
 import io
-import socket
 import tempfile
 import threading
 import gi
@@ -15,11 +14,14 @@ gi.require_version('Notify', '0.7')
 
 from gi.repository import Notify
 
-setproctitle.setproctitle("a2ln")
 
-argumentParser = argparse.ArgumentParser(description="Shows Android notifications on Linux")
+def parse_args():
+    argument_parser = argparse.ArgumentParser(description="Shows Android notifications on Linux")
 
-argumentParser.add_argument("port", metavar="p", type=int, help="The port")
+    argument_parser.add_argument("port", metavar="p", type=int, help="The port")
+
+    return argument_parser.parse_args()
+
 
 def send_notification(title, text, picture_file=None):
     if picture_file is None:
@@ -31,37 +33,41 @@ def send_notification(title, text, picture_file=None):
 
     print(f"Sent notification (Title: {title}, Text: {text})")
 
-port = argumentParser.parse_args().port
 
-with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as socket:
-    socket.connect(("8.8.8.8", 80))
+def handle_notification(notification):
+    if len(notification) < 2:
+        return
 
-    print(f"Address: {socket.getsockname()[0]}:{port}")
+    title = notification[0].decode("utf-8")
+    text = notification[1].decode("utf-8")
 
-with zmq.Context() as context, context.socket(zmq.PULL) as socket:
-    socket.bind(f"tcp://*:{port}")
+    if len(notification) > 2:
+        picture_file = tempfile.NamedTemporaryFile(suffix=".png")
 
-    Notify.init("Android 2 Linux Notifications")
+        Image.open(io.BytesIO(notification[2])).save(picture_file.name)
 
-    while True:
-        try:
-            notification = socket.recv_multipart()
-        except KeyboardInterrupt:
-            break
+        args = (title, text, picture_file)
+    else:
+        args = (title, text)
 
-        if len(notification) < 2:
-            continue
+    threading.Thread(target=send_notification, args=args).start()
 
-        title = notification[0].decode("utf-8")
-        text = notification[1].decode("utf-8")
 
-        if len(notification) > 2:
-            picture_file = tempfile.NamedTemporaryFile(suffix=".png")
+def start():
+    setproctitle.setproctitle("a2ln")
 
-            Image.open(io.BytesIO(notification[2])).save(picture_file.name)
+    port = parse_args().port
 
-            args = (title, text, picture_file)
-        else:
-            args = (title, text)
+    with zmq.Context() as context, context.socket(zmq.PULL) as socket:
+        socket.bind(f"tcp://*:{port}")
 
-        threading.Thread(target=send_notification, args=args).start()
+        Notify.init("Android 2 Linux Notifications")
+
+        while True:
+            try:
+                handle_notification(socket.recv_multipart())
+            except KeyboardInterrupt:
+                break
+
+
+start()

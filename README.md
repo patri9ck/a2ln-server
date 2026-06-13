@@ -13,12 +13,7 @@ Alternatively, you can clone this repository and install/uninstall A2LN manually
 $ git clone https://github.com/patri9ck/a2ln-server.git
 $ cd a2ln-server
 ```
-Runtime dependencies:
-- Python 3
-- Pillow
-- PyGObject
-- PyZMQ
-- setproctitle
+See [`requirements.txt`](requirements.txt) for all required runtime dependencies.
 #### Installation
 ```
 # make install
@@ -34,11 +29,7 @@ $ a2ln <PORT>
 ```
 Replace `<PORT>` with the port you want to use. **You must use a port higher than 1023 if you are not root**.
 
-If A2LN started correctly, it should show a message like this:
-```
-Address: 192.168.178.41:6000
-```
-This is the address you have to enter in the [A2LN app](https://github.com/patri9ck/a2ln-app).
+Now all you need to do is to give the local address of your computer to the [A2LN app](https://github.com/patri9ck/a2ln-app).
 ### Auto-starting
 Common options to auto-start A2LN are:
 - `~/.bash_profile`, `~/.zprofile`, ...
