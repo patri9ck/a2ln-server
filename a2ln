@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
-import socket
-import zmq
-import threading
-import tempfile
 import io
+import socket
+import tempfile
+import threading
 import gi
 import setproctitle
+import zmq
 
 from PIL import Image
 
@@ -21,7 +21,7 @@ argumentParser = argparse.ArgumentParser(description="Shows Android notification
 
 argumentParser.add_argument("port", metavar="p", type=int, help="The port")
 
-def send_notification(title, text, picture_file = None):
+def send_notification(title, text, picture_file=None):
     if picture_file is None:
         Notify.Notification.new(title, text, "dialog-information").show()
     else:
@@ -35,7 +35,7 @@ port = argumentParser.parse_args().port
 
 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as socket:
     socket.connect(("8.8.8.8", 80))
-    
+
     print(f"Address: {socket.getsockname()[0]}:{port}")
 
 with zmq.Context() as context, context.socket(zmq.PULL) as socket:
