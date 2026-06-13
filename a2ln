@@ -85,8 +85,7 @@ def main():
 
     notification_server.start()
 
-    while not notification_server.started:
-        time.sleep(1)
+    time.sleep(1)
 
     PairServer(client_public_keys_directory, own_public_key, args.pairing_port, notification_server).start()
 
@@ -145,17 +144,10 @@ def handle_exception(name: str, error: zmq.error.ZMQError) -> None:
             traceback.print_exc()
 
 
-class Server(threading.Thread):
-    def __init__(self):
-        super(Server, self).__init__(daemon=True)
-
-        self.started = False
-
-
-class NotificationServer(Server):
+class NotificationServer(threading.Thread):
     def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, own_secret_key: bytes, port: int,
                  title_format: str, command: str):
-        super(NotificationServer, self).__init__()
+        super(NotificationServer, self).__init__(daemon=True)
 
         self.client_public_keys_directory = client_public_keys_directory
         self.own_public_key = own_public_key
@@ -191,8 +183,6 @@ class NotificationServer(Server):
                     handle_exception("notification", error)
 
                     return
-                finally:
-                    self.started = True
 
                 Notify.init("Android 2 Linux Notifications")
 
@@ -229,10 +219,10 @@ class NotificationServer(Server):
             self.authenticator.configure_curve(domain="*", location=self.client_public_keys_directory.as_posix())
 
 
-class PairServer(Server):
+class PairServer(threading.Thread):
     def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, port: int,
                  notification_server: NotificationServer):
-        super(PairServer, self).__init__()
+        super(PairServer, self).__init__(daemon=True)
 
         self.client_public_keys_directory = client_public_keys_directory
         self.own_public_key = own_public_key
@@ -252,8 +242,6 @@ class PairServer(Server):
                 handle_exception("pairing", error)
 
                 return
-            finally:
-                self.started = True
 
             ip = get_ip()
 
