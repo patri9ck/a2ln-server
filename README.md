@@ -9,8 +9,7 @@ Distribution | Maintainer
 Alternatively, you can clone this repository and place the `a2ln` Python script somewhere into your `PATH` variable:
 ```
 $ git clone https://github.com/patri9ck/a2ln-server.git
-$ mv a2ln-server
-# mv a2ln-server/a2ln /usr/local/bin
+# install -Dm755 a2ln-server/a2ln /usr/local/bin/a2ln
 ```
 ## Usage
 After the installation, simply run A2LN like this:
