@@ -44,6 +44,8 @@ from gi.repository import Notify  # type: ignore # noqa: E402
 BOLD = "\033[1m"
 RESET = "\033[0m"
 
+DEFAULT_PORT = 23045
+
 
 def main() -> None:
     args = parse_args()
@@ -109,7 +111,7 @@ def parse_args() -> Namespace:
     argument_parser = argparse.ArgumentParser(description="A way to display Android phone notifications on Linux")
 
     argument_parser.add_argument("--ip", type=str, default="*", help="The IP to listen")
-    argument_parser.add_argument("--port", type=int, default=23045, help=f"The port to listen)")
+    argument_parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"The port to listen)")
     argument_parser.add_argument("--title-format", type=str, default="{title}", help="The format of the title. "
                                                                                      "Available placeholders: {app}, "
                                                                                      "{title}, {body}")
