@@ -72,13 +72,15 @@ def main():
     own_public_key, own_secret_key = zmq.auth.load_certificate(own_keys_directory / "server.key_secret")
 
     notification_server = NotificationServer(client_public_keys_directory, own_public_key, own_secret_key,
-                                             args.notification_port, args.title_format, args.command)
+                                             args.notification_ip, args.notification_port, args.title_format,
+                                             args.command)
 
     notification_server.start()
 
     time.sleep(1)
 
-    PairServer(client_public_keys_directory, own_public_key, args.pairing_port, notification_server).start()
+    PairServer(client_public_keys_directory, own_public_key, args.pairing_ip, args.pairing_port,
+               notification_server).start()
 
     while True:
         time.sleep(1)
@@ -87,8 +89,12 @@ def main():
 def parse_args() -> Namespace:
     argument_parser = argparse.ArgumentParser(description="A way to display Android phone notifications on Linux")
 
-    argument_parser.add_argument("notification_port", metavar="NOTIFICATION_PORT", type=int, nargs="?", default=23045,
+    argument_parser.add_argument("--notification-ip", type=str, default="*",
+                                 help="The IP to listen for notifications (by default *")
+    argument_parser.add_argument("--notification-port", type=int, default=23045,
                                  help="The port to listen for notifications")
+    argument_parser.add_argument("--pairing-ip", type=str, default="*",
+                                 help="The IP to listen for pairing requests (by default *")
     argument_parser.add_argument("--pairing-port", type=int,
                                  help="The port to listen for pairing requests (by default random)")
     argument_parser.add_argument("--title-format", type=str, default="{title}",
@@ -114,29 +120,37 @@ def send_notification(title: str, text: str, picture_file: tempfile = None):
 
         picture_file.close()
 
-    print(f"\n{GREEN_PREFIX}Sent notification (Title: {BOLD}{title}{RESET}, Text: {BOLD}{text}{RESET})")
+    print(f"{GREEN_PREFIX}Sent notification (Title: {BOLD}{title}{RESET}, Text: {BOLD}{text}{RESET})")
 
 
-def handle_exception(name: str, error: zmq.error.ZMQError) -> None:
-    if error.errno == zmq.EADDRINUSE:
-        print(f"{RED_PREFIX}Cannot start {name} server: Port already used")
-    elif error.errno == 13:
+def inform(name: str, ip: str = None, port: int = None, error: zmq.error.ZMQError = None) -> None:
+    if error is None:
         print(
-            f"{RED_PREFIX}Cannot start {name} server: No permission (note that you must use a port higher than 1023 if you are not root)")
-    else:
-        print(f"{RED_PREFIX}Cannot start {name} server:")
+            f"{GREEN_PREFIX}{name.capitalize()} server running on IP {BOLD}{ip}{RESET} and port {BOLD}{port}{RESET}.")
 
+        return
+
+    print(f"{RED_PREFIX}Cannot start {name.lower()} server:", end=" ")
+
+    if error.errno == zmq.EADDRINUSE:
+        print("Port already used")
+    elif error.errno == 13:
+        print("No permission (note that you must use a port higher than 1023 if you are not root)")
+    elif error.errno == 19:
+        print("Invalid IP")
+    else:
         traceback.print_exc()
 
 
 class NotificationServer(threading.Thread):
-    def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, own_secret_key: bytes, port: int,
-                 title_format: str, command: str):
+    def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, own_secret_key: bytes, ip: str,
+                 port: int, title_format: str, command: str):
         super(NotificationServer, self).__init__(daemon=True)
 
         self.client_public_keys_directory = client_public_keys_directory
         self.own_public_key = own_public_key
         self.own_secret_key = own_secret_key
+        self.ip = ip
         self.port = port
         self.title_format = title_format
         self.command = command
@@ -159,15 +173,17 @@ class NotificationServer(threading.Thread):
                 server.curve_server = True
 
                 try:
-                    server.bind(f"tcp://*:{self.port}")
-
-                    print(f"{GREEN_PREFIX}Notification server running on port {BOLD}{self.port}{RESET}")
+                    server.bind(f"tcp://{self.ip}:{self.port}")
                 except zmq.error.ZMQError as error:
                     self.authenticator.stop()
 
-                    handle_exception("notification", error)
+                    inform("notification", error=error)
 
                     return
+
+                inform("notification", ip=self.ip, port=self.port)
+
+                print("Do not forget to autostart the notification server. More information can be found at https://patri9ck.dev/a2ln/server.html#autostarting.")
 
                 Notify.init("Android 2 Linux Notifications")
 
@@ -204,12 +220,13 @@ class NotificationServer(threading.Thread):
 
 
 class PairServer(threading.Thread):
-    def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, port: int,
+    def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, ip: str, port: int,
                  notification_server: NotificationServer):
         super(PairServer, self).__init__(daemon=True)
 
         self.client_public_keys_directory = client_public_keys_directory
         self.own_public_key = own_public_key
+        self.ip = ip
         self.port = port
         self.notification_server = notification_server
 
@@ -219,11 +236,11 @@ class PairServer(threading.Thread):
         with zmq.Context() as context, context.socket(zmq.REP) as server:
             try:
                 if self.port is None:
-                    self.port = server.bind_to_random_port("tcp://*")
+                    self.port = server.bind_to_random_port(f"tcp://{self.ip}")
                 else:
-                    server.bind(f"tcp://*:{self.port}")
+                    server.bind(f"tcp://{self.ip}:{self.port}")
             except zmq.error.ZMQError as error:
-                handle_exception("pairing", error)
+                inform("pairing", error=error)
 
                 return
 
@@ -234,11 +251,12 @@ class PairServer(threading.Thread):
             qr_code.add_data(f"{ip}:{self.port}")
             qr_code.print_ascii()
 
-            print(
-                f"{GREEN_PREFIX}To pair a new device, open the Android 2 Linux Notifications app and scan this QR code or enter the following:")
+            inform("pairing", ip=self.ip, port=self.port)
+
+            print("To pair a new device, open the Android 2 Linux Notifications app and scan this QR code or enter the following:")
             print(f"IP: {BOLD}{ip}{RESET}")
             print(f"Port: {BOLD}{self.port}{RESET}")
-            print(f"\n{GREEN_PREFIX}Public Key: {BOLD}{self.own_public_key.decode('utf-8')}{RESET}")
+            print(f"{GREEN_PREFIX}Public Key: {BOLD}{self.own_public_key.decode('utf-8')}{RESET}")
 
             while True:
                 request = server.recv_multipart()
@@ -249,11 +267,11 @@ class PairServer(threading.Thread):
                 client_ip = request[0].decode("utf-8")
                 client_public_key = request[1].decode("utf-8")
 
-                print(f"\n{GREEN_PREFIX}New pairing request")
+                print(f"{GREEN_PREFIX}New pairing request")
                 print(f"IP: {BOLD}{client_ip}{RESET}")
                 print(f"Public Key: {BOLD}{client_public_key}{RESET}")
 
-                if input("\nAccept? (Yes/No): ").lower() != "yes":
+                if input("Accept? (Yes/No): ").lower() != "yes":
                     print("Pairing cancelled.")
 
                     server.send_multipart([b""])
