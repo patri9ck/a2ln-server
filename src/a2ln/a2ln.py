@@ -114,10 +114,10 @@ def parse_args() -> Namespace:
     argument_parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"The port to listen)")
     argument_parser.add_argument("--title-format", type=str, default="{title}", help="The format of the title. "
                                                                                      "Available placeholders: {app}, "
-                                                                                     "{title}, {body}, {package}")
+                                                                                     "{title}, {body}, {package}, {source}")
     argument_parser.add_argument("--body-format", type=str, default="{body}", help="The format of the body. Available "
                                                                                    "placeholders: {app}, {title}, "
-                                                                                   "{body}, {package}")
+                                                                                   "{body}, {package}, {source}")
     argument_parser.add_argument("--command", type=str, help="A shell command to run whenever a notification arrives. "
                                                              "Available placeholders: {app}, {title}, {body}, {package}")
 
@@ -209,7 +209,7 @@ class NotificationServer(threading.Thread):
                 Notify.init("Android 2 Linux Notifications")
 
                 while True:
-                    request = server.recv_multipart()
+                    request = server.recv_multipart(copy=False)
 
                     length = len(request)
 
@@ -219,22 +219,22 @@ class NotificationServer(threading.Thread):
                     if length == 5:
                         picture_file = tempfile.NamedTemporaryFile(suffix=".png")
 
-                        Image.open(io.BytesIO(request[4])).save(picture_file.name)
+                        Image.open(io.BytesIO(request[4].bytes)).save(picture_file.name)
                     else:
                         picture_file = None
 
-                    app = request[0].decode("utf-8")
-                    title = request[1].decode("utf-8")
-                    body = request[2].decode("utf-8")
-                    package = request[3].decode("utf-8")
+                    source = request[0].get("Peer-Address") # noqa
+                    app = request[0].bytes.decode("utf-8")
+                    title = request[1].bytes.decode("utf-8")
+                    body = request[2].bytes.decode("utf-8")
+                    package = request[3].bytes.decode("utf-8")
 
                     print()
-                    print(
-                        f"Received notification (App: {BOLD}{app}{RESET}, Title: {BOLD}{title}{RESET}, Body: {BOLD}{body}{RESET}, Package: {BOLD}{package}{RESET})")
+                    print(f"Received notification from {BOLD}{source}{RESET} (App: {BOLD}{app}{RESET}, Title: {BOLD}{title}{RESET}, Body: {BOLD}{body}{RESET}, Package: {BOLD}{package}{RESET})")
 
                     def replace(text: str) -> str:
                         return text.replace("{app}", app).replace("{title}", title).replace("{body}", body).replace(
-                            "{package}", package)
+                            "{package}", package).replace("{source}", source) # noqa
 
                     if not self.disabled:
                         threading.Thread(target=send_notification,
