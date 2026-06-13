@@ -24,6 +24,7 @@ import time
 import traceback
 from argparse import Namespace
 from pathlib import Path
+from typing import Optional
 
 import gi
 import qrcode
@@ -70,14 +71,12 @@ def main():
 
         own_public_key, own_secret_key = zmq.auth.load_certificate(own_keys_directory / "server.key_secret")
 
-        notification_server = None
-        pairing_server = None
+        notification_server, pairing_server = None, None
 
         if not args.no_notification_server:
             notification_server = NotificationServer(client_public_keys_directory, own_public_key, own_secret_key,
-                                                     args.notification_ip, args.notification_port, args.title_format,
-                                                     args.body_format,
-                                                     args.command)
+                                                     args.notification_ip, args.notification_port, args.command,
+                                                     args.title_format, args.body_format)
 
             notification_server.start()
 
@@ -86,7 +85,7 @@ def main():
                 time.sleep(1)
 
             pairing_server = PairingServer(client_public_keys_directory, own_public_key, args.pairing_ip,
-                                           args.pairing_port, notification_server)
+                                           args.pairing_port, args.notification_port, notification_server)
 
             pairing_server.start()
 
@@ -130,7 +129,7 @@ def get_ip() -> str:
         return client.getsockname()[0]
 
 
-def send_notification(title: str, text: str, picture_file: tempfile = None) -> None:
+def send_notification(title: str, text: str, picture_file: Optional[tempfile._TemporaryFileWrapper] = None) -> None:
     if picture_file is None:
         Notify.Notification.new(title, text, "dialog-information").show()
     else:
@@ -141,7 +140,8 @@ def send_notification(title: str, text: str, picture_file: tempfile = None) -> N
     print(f"{GREEN_PREFIX}Sent notification (Title: {BOLD}{title}{RESET}, Text: {BOLD}{text}{RESET})")
 
 
-def inform(name: str, ip: str = None, port: int = None, error: zmq.error.ZMQError = None) -> None:
+def inform(name: str, ip: Optional[str] = None, port: Optional[int] = None,
+           error: Optional[zmq.error.ZMQError] = None) -> None:
     if error is None:
         print(
             f"{GREEN_PREFIX}{name.capitalize()} server running on IP {BOLD}{ip}{RESET} and port {BOLD}{port}{RESET}.")
@@ -162,7 +162,7 @@ def inform(name: str, ip: str = None, port: int = None, error: zmq.error.ZMQErro
 
 class NotificationServer(threading.Thread):
     def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, own_secret_key: bytes, ip: str,
-                 port: int, title_format: str, body_format: str, command: str):
+                 port: int, command: Optional[str], title_format: Optional[str], body_format: Optional[str]):
         super(NotificationServer, self).__init__(daemon=True)
 
         self.client_public_keys_directory = client_public_keys_directory
@@ -170,10 +170,11 @@ class NotificationServer(threading.Thread):
         self.own_secret_key = own_secret_key
         self.ip = ip
         self.port = port
-        self.title_format = title_format
-        self.body_format = body_format
         self.command = command
-        self.authenticator = None
+        self.title_format = "{title}" if title_format is None else title_format
+        self.body_format = "{body}" if body_format is None else body_format
+
+        self.authenticator: Optional[zmq.auth.thread.ThreadAuthenticator] = None
 
     def run(self) -> None:
         super(NotificationServer, self).run()
@@ -242,14 +243,15 @@ class NotificationServer(threading.Thread):
 
 
 class PairingServer(threading.Thread):
-    def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, ip: str, port: int,
-                 notification_server: NotificationServer):
+    def __init__(self, client_public_keys_directory: Path, own_public_key: bytes, ip: str, port: Optional[int],
+                 notification_port: int, notification_server: Optional[NotificationServer]):
         super(PairingServer, self).__init__(daemon=True)
 
         self.client_public_keys_directory = client_public_keys_directory
         self.own_public_key = own_public_key
         self.ip = ip
         self.port = port
+        self.notification_port = notification_port
         self.notification_server = notification_server
 
     def run(self) -> None:
@@ -307,7 +309,7 @@ class PairingServer(threading.Thread):
                                           "curve\n"
                                           f"    public-key = \"{client_public_key}\"\n")
 
-                server.send_multipart([str(self.notification_server.port).encode("utf-8"), self.own_public_key])
+                server.send_multipart([str(self.notification_port).encode("utf-8"), self.own_public_key])
 
                 if self.notification_server is not None:
                     self.notification_server.update_client_public_keys()
