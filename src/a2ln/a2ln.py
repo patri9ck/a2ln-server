@@ -17,6 +17,7 @@
 import argparse
 import io
 import os
+import re
 import signal
 import socket
 import subprocess
@@ -137,6 +138,19 @@ def parse_args() -> Namespace:
 
 
 def get_ip() -> str:
+    try:
+        result = subprocess.run(
+            ["ip", "route", "show", "table", "main", "default"],
+            capture_output=True, text=True, check=True,
+        )
+
+        match = re.search(r"\bsrc (\d+\.\d+\.\d+\.\d+)", result.stdout)
+
+        if match:
+            return match.group(1)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client:
         client.connect(("8.8.8.8", 80))
 
@@ -311,7 +325,7 @@ class PairingServer(threading.Thread):
                 print(f"Public Key: {BOLD}{client_public_key}{RESET}")
                 print()
 
-                if input("Accept? (Yes/No): ").lower() != "yes":
+                if input("Accept? (Yes/No): ").strip().lower() != "yes":
                     print("Pairing cancelled.")
 
                     server.send(b"")
@@ -327,3 +341,6 @@ class PairingServer(threading.Thread):
                 server.send(self.own_public_key)
 
                 print("Pairing finished.")
+
+                if input("Pair another device? (Yes/No): ").strip().lower() != "yes":
+                    break
