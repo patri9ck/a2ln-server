@@ -325,7 +325,7 @@ class PairingServer(threading.Thread):
                 print(f"Public Key: {BOLD}{client_public_key}{RESET}")
                 print()
 
-                if input("Accept? (Yes/No): ").lower() != "yes":
+                if input("Accept? (Yes/No): ").strip().lower() != "yes":
                     print("Pairing cancelled.")
 
                     server.send(b"")
@@ -342,5 +342,5 @@ class PairingServer(threading.Thread):
 
                 print("Pairing finished.")
 
-                if input("Pair another device? (yes/No): ").strip().lower() != "yes":
+                if input("Pair another device? (Yes/No): ").strip().lower() != "yes":
                     break
