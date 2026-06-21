@@ -342,5 +342,5 @@ class PairingServer(threading.Thread):
 
                 print("Pairing finished.")
 
-                if input("Pair another device? (yes/No): ").lower() != "yes":
+                if input("Pair another device? (yes/No): ").strip().lower() != "yes":
                     break
